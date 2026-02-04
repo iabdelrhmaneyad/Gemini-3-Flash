@@ -1,0 +1,11 @@
+[
+  {
+    "id": "1770215475411",
+    "email": "admin@ischool.com",
+    "password_hash": "$2a$10$1SmYcRCX0Kv59sErd5lVL.Hl6efhVvdk2QdxNKwXCdXCL7KwhiM9K",
+    "full_name": "Admin User",
+    "role": "admin",
+    "created_at": "2026-02-04T14:31:15.411Z",
+    "email_verified": false
+  }
+]

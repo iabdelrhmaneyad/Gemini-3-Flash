@@ -43,6 +43,7 @@ async function initializeBIDashboard() {
         await processData();
         updateAllCharts();
         populateTutorFilters();
+        attachFilterListeners();
 
         hideLoading();
     } catch (error) {
@@ -50,6 +51,95 @@ async function initializeBIDashboard() {
         hideLoading();
         showEmptyState();
     }
+}
+
+// ===== Filter Management =====
+function attachFilterListeners() {
+    const dateFilter = document.getElementById('dateRangeFilter');
+    const tutorFilter = document.getElementById('tutorFilter');
+    const performanceFilter = document.getElementById('performanceFilter');
+    const statusFilter = document.getElementById('statusFilter');
+
+    if (dateFilter) dateFilter.addEventListener('change', applyFilters);
+    if (tutorFilter) tutorFilter.addEventListener('change', applyFilters);
+    if (performanceFilter) performanceFilter.addEventListener('change', applyFilters);
+    if (statusFilter) statusFilter.addEventListener('change', applyFilters);
+}
+
+function applyFilters() {
+    filteredSessions = [...allSessions];
+
+    // Date Range Filter
+    const dateRange = document.getElementById('dateRangeFilter')?.value;
+    if (dateRange && dateRange !== 'all') {
+        const now = new Date();
+        const cutoffDate = new Date();
+        
+        switch (dateRange) {
+            case 'today':
+                cutoffDate.setHours(0, 0, 0, 0);
+                break;
+            case 'week':
+                cutoffDate.setDate(now.getDate() - 7);
+                break;
+            case 'month':
+                cutoffDate.setDate(now.getDate() - 30);
+                break;
+            case 'quarter':
+                cutoffDate.setDate(now.getDate() - 90);
+                break;
+        }
+        
+        filteredSessions = filteredSessions.filter(s => {
+            const sessionDate = new Date(s.dateTime || s.createdAt || now);
+            return sessionDate >= cutoffDate;
+        });
+    }
+
+    // Tutor Filter
+    const tutorId = document.getElementById('tutorFilter')?.value;
+    if (tutorId && tutorId !== 'all') {
+        filteredSessions = filteredSessions.filter(s => s.tutorId === tutorId);
+    }
+
+    // Performance Filter
+    const performanceLevel = document.getElementById('performanceFilter')?.value;
+    if (performanceLevel && performanceLevel !== 'all') {
+        filteredSessions = filteredSessions.filter(s => {
+            const score = s.aiScore || 0;
+            switch (performanceLevel) {
+                case 'high': return score >= 80;
+                case 'medium': return score >= 60 && score < 80;
+                case 'low': return score < 60;
+                default: return true;
+            }
+        });
+    }
+
+    // Status Filter
+    const status = document.getElementById('statusFilter')?.value;
+    if (status && status !== 'all') {
+        filteredSessions = filteredSessions.filter(s => s.status === status);
+    }
+
+    // Reprocess and update
+    processData();
+    updateAllCharts();
+    displayInsights();
+    
+    showNotification(`Filters applied: ${filteredSessions.length} sessions found`, 'success');
+}
+
+function resetFilters() {
+    // Reset all filter dropdowns
+    ['dateRangeFilter', 'tutorFilter', 'performanceFilter', 'statusFilter'].forEach(id => {
+        const filter = document.getElementById(id);
+        if (filter) filter.selectedIndex = 0;
+    });
+    
+    // Reapply with defaults
+    applyFilters();
+    showNotification('Filters reset', 'info');
 }
 
 // ===== Data Processing =====
@@ -67,11 +157,14 @@ function processData() {
         bottomPerformers: getBottomPerformers(5),
         scoreDistribution: calculateScoreDistribution(),
         scoreDimensions: calculateScoreDimensions(),
-        timeSlotPerformance: calculateTimeSlotPerformance()
+        timeSlotPerformance: calculateTimeSlotPerformance(),
+        humanVsAI: calculateHumanVsAIComparison()
     };
 
     updateKPICards();
     updateRankings();
+    displayInsights();
+    displayHumanVsAIComparison();
 }
 
 // ===== KPI Calculations =====
@@ -283,6 +376,23 @@ function calculateScoreDistribution() {
         '81-100': 0
     };
 
+    // Use real metrics if available
+    if (realReportMetrics && realReportMetrics.tutorScores && realReportMetrics.tutorScores.length > 0) {
+        const activeTutorIds = new Set(filteredSessions.map(s => s.tutorId));
+        realReportMetrics.tutorScores
+            .filter(t => activeTutorIds.has(t.tutorId))
+            .forEach(t => {
+                const score = t.overall || 0;
+                if (score <= 20) ranges['0-20']++;
+                else if (score <= 40) ranges['21-40']++;
+                else if (score <= 60) ranges['41-60']++;
+                else if (score <= 80) ranges['61-80']++;
+                else ranges['81-100']++;
+            });
+        return ranges;
+    }
+
+    // Fallback to simulated scores
     filteredSessions.forEach(s => {
         const score = getSessionScore(s);
         if (score <= 20) ranges['0-20']++;
@@ -322,6 +432,8 @@ function calculateTimeSlotPerformance() {
     const timeSlots = {};
 
     filteredSessions.forEach(s => {
+        if (!s.timeSlot) return; // Skip if no time slot
+        
         if (!timeSlots[s.timeSlot]) {
             timeSlots[s.timeSlot] = {
                 count: 0,
@@ -329,14 +441,24 @@ function calculateTimeSlotPerformance() {
             };
         }
         timeSlots[s.timeSlot].count++;
-        timeSlots[s.timeSlot].totalScore += getSessionScore(s);
+        
+        // Use AI score if available, otherwise use simulated score
+        const score = s.aiScore || getSessionScore(s);
+        timeSlots[s.timeSlot].totalScore += score;
     });
 
-    return Object.entries(timeSlots).map(([slot, data]) => ({
-        slot,
-        avgScore: Math.round(data.totalScore / data.count),
-        count: data.count
-    }));
+    return Object.entries(timeSlots)
+        .map(([slot, data]) => ({
+            slot,
+            avgScore: Math.round(data.totalScore / data.count),
+            count: data.count
+        }))
+        .sort((a, b) => {
+            // Sort by slot number (assuming format like "Slot 1", "Slot 2")
+            const slotA = parseInt(a.slot.replace(/[^0-9]/g, '')) || 0;
+            const slotB = parseInt(b.slot.replace(/[^0-9]/g, '')) || 0;
+            return slotA - slotB;
+        });
 }
 
 function getSessionScore(session) {
@@ -382,24 +504,64 @@ function updateKPICards() {
 function updateSAPTCFScores() {
     if (realReportMetrics && realReportMetrics.categoryAverages) {
         const cat = realReportMetrics.categoryAverages;
+        const hasHumanScores = realReportMetrics.humanCategoryAverages && 
+                              realReportMetrics.totalHumanReports > 0;
         
-        const setScore = (id, value) => {
+        const categories = [
+            { key: 'setup', id: 'scoreSetup' },
+            { key: 'attitude', id: 'scoreAttitude' },
+            { key: 'preparation', id: 'scorePreparation' },
+            { key: 'teaching', id: 'scoreTeaching' },
+            { key: 'curriculum', id: 'scoreCurriculum' },
+            { key: 'feedback', id: 'scoreFeedback' }
+        ];
+
+        categories.forEach(({ key, id }) => {
             const el = document.getElementById(id);
             if (el) {
-                el.textContent = value > 0 ? value : '--';
-                // Add color based on score
-                if (value >= 80) el.style.color = '#27ae60';
-                else if (value >= 60) el.style.color = '#f58220';
-                else if (value > 0) el.style.color = '#e74c3c';
+                const aiScore = cat[key] || 0;
+                const humanScore = hasHumanScores ? (realReportMetrics.humanCategoryAverages[key] || 0) : null;
+                
+                if (hasHumanScores && humanScore !== null && humanScore > 0) {
+                    const diff = aiScore - humanScore;
+                    const diffColor = Math.abs(diff) <= 5 ? '#27ae60' : Math.abs(diff) <= 10 ? '#f39c12' : '#e74c3c';
+                    const diffIcon = diff > 0 ? '▲' : diff < 0 ? '▼' : '●';
+                    
+                    el.innerHTML = `
+                        <div style="display: flex; flex-direction: column; gap: 0.35rem; width: 100%;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                                    <span style="color: #f5576c; font-weight: bold; font-size: 1rem;">🤖</span>
+                                    <span style="color: #1a1a2e; font-weight: 600;">${aiScore}</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                                    <span style="color: #4facfe; font-weight: bold; font-size: 1rem;">👤</span>
+                                    <span style="color: #1a1a2e; font-weight: 600;">${humanScore}</span>
+                                </div>
+                            </div>
+                            <div style="height: 4px; background: #e0e0e0; border-radius: 2px; overflow: hidden; position: relative;">
+                                <div style="position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, #f5576c 50%, #4facfe 50%); width: ${Math.max(aiScore, humanScore)}%; transition: width 0.3s;"></div>
+                            </div>
+                            <div style="text-align: center; font-size: 0.7rem; color: ${diffColor}; font-weight: 600;">
+                                ${diffIcon} ${Math.abs(diff)}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    el.textContent = aiScore > 0 ? aiScore : '--';
+                    if (aiScore >= 80) el.style.color = '#27ae60';
+                    else if (aiScore >= 60) el.style.color = '#f58220';
+                    else if (aiScore > 0) el.style.color = '#e74c3c';
+                }
             }
-        };
-        
-        setScore('scoreSetup', cat.setup || 0);
-        setScore('scoreAttitude', cat.attitude || 0);
-        setScore('scorePreparation', cat.preparation || 0);
-        setScore('scoreTeaching', cat.teaching || 0);
-        setScore('scoreCurriculum', cat.curriculum || 0);
-        setScore('scoreFeedback', cat.feedback || 0);
+        });
+
+        // Update section header
+        const saptcfTitle = document.querySelector('.saptcf-section .section-title');
+        if (saptcfTitle && hasHumanScores) {
+            const originalText = saptcfTitle.textContent.replace(' (AI 🤖 vs Human 👤)', '');
+            saptcfTitle.textContent = originalText + ' (AI 🤖 vs Human 👤)';
+        }
     }
 }
 
@@ -923,7 +1085,768 @@ function createComparisonChart(tutor1Id, tutor2Id, score1, score2) {
 
 // ===== Export Report =====
 function exportReport() {
-    alert('Export functionality will generate a PDF report with all BI metrics and charts. This feature is coming soon!');
+    showNotification('Generating comprehensive BI report...', 'info');
+    
+    try {
+        // Generate CSV data
+        const csvData = generateCSVReport();
+        downloadCSV(csvData, `BI_Report_${new Date().toISOString().split('T')[0]}.csv`);
+        
+        // Generate HTML report
+        generateHTMLReport();
+        
+        showNotification('Reports exported successfully!', 'success');
+    } catch (error) {
+        console.error('Export error:', error);
+        showNotification('Error exporting report', 'error');
+    }
+}
+
+function generateCSVReport() {
+    const rows = [];
+    
+    // Header
+    rows.push(['iSchool BI Analytics Report']);
+    rows.push([`Generated: ${new Date().toLocaleString()}`]);
+    rows.push(['']);
+    
+    // KPI Summary
+    rows.push(['KEY METRICS']);
+    rows.push(['Total Tutors', biMetrics.totalTutors]);
+    rows.push(['Average Performance', biMetrics.avgPerformance + '%']);
+    rows.push(['Critical Flags', biMetrics.criticalFlags]);
+    rows.push(['Quality Rating', biMetrics.qualityRating + '%']);
+    rows.push(['']);
+    
+    // Human vs AI Comparison
+    if (biMetrics.humanVsAI && biMetrics.humanVsAI.totalCompared > 0) {
+        rows.push(['HUMAN VS AI COMPARISON']);
+        rows.push(['Sessions Compared', biMetrics.humanVsAI.totalCompared]);
+        rows.push(['Agreement Rate', biMetrics.humanVsAI.agreement + '%']);
+        rows.push(['Average AI Score', biMetrics.humanVsAI.avgAIScore + '%']);
+        rows.push(['Average Human Score', biMetrics.humanVsAI.avgHumanScore + '%']);
+        rows.push(['AI Scored Higher', biMetrics.humanVsAI.aiHigher]);
+        rows.push(['Human Scored Higher', biMetrics.humanVsAI.humanHigher]);
+        rows.push(['Closely Matched', biMetrics.humanVsAI.matched]);
+        rows.push(['']);
+    }
+    
+    // SAPTCF Scores
+    if (realReportMetrics && realReportMetrics.categoryAverages) {
+        rows.push(['SAPTCF CATEGORY SCORES']);
+        rows.push(['Setup', realReportMetrics.categoryAverages.setup]);
+        rows.push(['Attitude', realReportMetrics.categoryAverages.attitude]);
+        rows.push(['Preparation', realReportMetrics.categoryAverages.preparation]);
+        rows.push(['Teaching', realReportMetrics.categoryAverages.teaching]);
+        rows.push(['Curriculum', realReportMetrics.categoryAverages.curriculum]);
+        rows.push(['Feedback', realReportMetrics.categoryAverages.feedback]);
+        rows.push(['']);
+    }
+    
+    // Top Performers
+    rows.push(['TOP PERFORMERS']);
+    rows.push(['Rank', 'Tutor ID', 'Score', 'Sessions']);
+    biMetrics.topPerformers.forEach((t, i) => {
+        rows.push([i + 1, t.tutorId, t.score, t.sessionCount]);
+    });
+    rows.push(['']);
+    
+    // Bottom Performers
+    rows.push(['NEEDS IMPROVEMENT']);
+    rows.push(['Rank', 'Tutor ID', 'Score', 'Sessions']);
+    biMetrics.bottomPerformers.forEach((t, i) => {
+        rows.push([i + 1, t.tutorId, t.score, t.sessionCount]);
+    });
+    
+    return rows.map(row => row.join(',')).join('\\n');
+}
+
+function downloadCSV(csvContent, filename) {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+}
+
+function generateHTMLReport() {
+    const reportWindow = window.open('', '_blank');
+    
+    const hasHumanData = biMetrics.humanVsAI && biMetrics.humanVsAI.totalCompared > 0;
+    const hasHumanCategories = realReportMetrics && realReportMetrics.humanCategoryAverages && realReportMetrics.totalHumanReports > 0;
+    
+    reportWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>BI Analytics Report - ${new Date().toLocaleDateString()}</title>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 40px; max-width: 1200px; margin: 0 auto; background: #f5f7fa; }
+                h1 { color: #1a1a2e; border-bottom: 3px solid #f58220; padding-bottom: 10px; margin-bottom: 20px; }
+                h2 { color: #1a1a2e; margin-top: 30px; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; }
+                .metric { display: inline-block; margin: 15px; padding: 20px; background: white; border-radius: 12px; min-width: 150px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center; }
+                .metric .value { font-size: 2.5rem; font-weight: bold; color: #f58220; margin-bottom: 8px; }
+                .metric .label { color: #666; font-size: 0.95rem; }
+                table { width: 100%; border-collapse: collapse; margin: 20px 0; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+                th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+                th { background: #1a1a2e; color: white; font-weight: 600; }
+                tr:hover { background: #f5f7fa; }
+                .action-buttons { margin: 20px 0; display: flex; gap: 10px; }
+                .print-btn { background: #f58220; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600; box-shadow: 0 2px 8px rgba(245, 130, 32, 0.3); }
+                .print-btn:hover { background: #e67310; }
+                .pdf-btn { background: #667eea; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3); }
+                .pdf-btn:hover { background: #5568d3; }
+                .comparison-box { background: linear-gradient(135deg, #e0e7ff 0%, #f0f4ff 100%); padding: 20px; border-radius: 12px; margin: 20px 0; border-left: 4px solid #667eea; }
+                .category-comparison { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+                .category-item { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                .category-item h3 { margin: 0 0 10px 0; color: #1a1a2e; font-size: 1rem; }
+                .score-row { display: flex; justify-content: space-between; margin: 8px 0; }
+                .score-row .ai { color: #f5576c; font-weight: bold; }
+                .score-row .human { color: #4facfe; font-weight: bold; }
+                .diff { text-align: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd; font-weight: 600; }
+                .diff.good { color: #27ae60; }
+                .diff.moderate { color: #f39c12; }
+                .diff.poor { color: #e74c3c; }
+                #pdf-loader { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px 50px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); z-index: 10000; }
+                #pdf-loader.active { display: block; }
+                @media print {
+                    .action-buttons { display: none; }
+                    body { background: white; }
+                }
+            </style>
+            <script>
+                function exportToPDF() {
+                    const loader = document.getElementById('pdf-loader');
+                    loader.classList.add('active');
+                    
+                    const element = document.getElementById('report-content');
+                    const opt = {
+                        margin: 10,
+                        filename: 'BI_Analytics_Report_${new Date().toISOString().split('T')[0]}.pdf',
+                        image: { type: 'jpeg', quality: 0.98 },
+                        html2canvas: { scale: 2, useCORS: true },
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                    };
+                    
+                    html2pdf().set(opt).from(element).save().then(() => {
+                        loader.classList.remove('active');
+                    }).catch((err) => {
+                        console.error('PDF generation error:', err);
+                        loader.classList.remove('active');
+                        alert('Error generating PDF. Please try Print instead.');
+                    });
+                }
+            </script>
+        </head>
+        <body>
+            <div id="pdf-loader">
+                <p style="margin: 0; font-size: 1.1rem; color: #1a1a2e; font-weight: 600;">📄 Generating PDF...</p>
+                <p style="margin: 10px 0 0 0; font-size: 0.9rem; color: #666;">Please wait</p>
+            </div>
+            
+            <div id="report-content">
+                <h1>📊 iSchool BI Analytics Report</h1>
+                <p style="color: #666; margin-bottom: 20px;">Generated: ${new Date().toLocaleString()}</p>
+                <div class="action-buttons">
+                    <button class="pdf-btn" onclick="exportToPDF()">📄 Export to PDF</button>
+                    <button class="print-btn" onclick="window.print()">🖨️ Print Report</button>
+                </div>
+            
+            <h2>Key Performance Indicators</h2>
+            <div>
+                <div class="metric"><div class="value">${biMetrics.totalTutors}</div><div class="label">Total Tutors</div></div>
+                <div class="metric"><div class="value">${biMetrics.avgPerformance}%</div><div class="label">Avg Performance</div></div>
+                <div class="metric"><div class="value">${biMetrics.criticalFlags}</div><div class="label">Critical Flags</div></div>
+                <div class="metric"><div class="value">${biMetrics.qualityRating}%</div><div class="label">Quality Rating</div></div>
+            </div>
+            
+            ${hasHumanData ? `
+            <h2>🤖 Human vs AI Comparison</h2>
+            <div class="comparison-box">
+                <div style="display: flex; justify-content: space-around; flex-wrap: wrap;">
+                    <div class="metric" style="margin: 10px;"><div class="value">${biMetrics.humanVsAI.totalCompared}</div><div class="label">Sessions Compared</div></div>
+                    <div class="metric" style="margin: 10px;"><div class="value">${biMetrics.humanVsAI.agreement}%</div><div class="label">Agreement Rate</div></div>
+                    <div class="metric" style="margin: 10px;"><div class="value">${biMetrics.humanVsAI.avgAIScore}%</div><div class="label">Avg AI Score</div></div>
+                    <div class="metric" style="margin: 10px;"><div class="value">${biMetrics.humanVsAI.avgHumanScore}%</div><div class="label">Avg Human Score</div></div>
+                </div>
+                <table style="margin-top: 20px;">
+                    <tr><th>Metric</th><th>Count</th><th>Percentage</th></tr>
+                    <tr><td>Closely Matched (±10%)</td><td>${biMetrics.humanVsAI.matched}</td><td>${Math.round((biMetrics.humanVsAI.matched/biMetrics.humanVsAI.totalCompared)*100)}%</td></tr>
+                    <tr><td>AI Scored Higher</td><td>${biMetrics.humanVsAI.aiHigher}</td><td>${Math.round((biMetrics.humanVsAI.aiHigher/biMetrics.humanVsAI.totalCompared)*100)}%</td></tr>
+                    <tr><td>Human Scored Higher</td><td>${biMetrics.humanVsAI.humanHigher}</td><td>${Math.round((biMetrics.humanVsAI.humanHigher/biMetrics.humanVsAI.totalCompared)*100)}%</td></tr>
+                </table>
+            </div>
+            ` : ''}
+            
+            <h2>SAPTCF Category Scores ${hasHumanCategories ? '(AI 🤖 vs Human 👤)' : ''}</h2>
+            ${hasHumanCategories ? `
+            <div class="category-comparison">
+                ${['setup', 'attitude', 'preparation', 'teaching', 'curriculum', 'feedback'].map(cat => {
+                    const aiScore = realReportMetrics.categoryAverages[cat];
+                    const humanScore = realReportMetrics.humanCategoryAverages[cat];
+                    const diff = Math.abs(aiScore - humanScore);
+                    const diffClass = diff <= 5 ? 'good' : diff <= 10 ? 'moderate' : 'poor';
+                    const catLabel = cat.charAt(0).toUpperCase() + cat.slice(1);
+                    return `
+                        <div class="category-item">
+                            <h3>${catLabel}</h3>
+                            <div class="score-row">
+                                <span>🤖 AI:</span>
+                                <span class="ai">${aiScore}%</span>
+                            </div>
+                            <div class="score-row">
+                                <span>👤 Human:</span>
+                                <span class="human">${humanScore}%</span>
+                            </div>
+                            <div class="diff ${diffClass}">Δ ${diff}%</div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+            ` : `
+            <table>
+                <tr><th>Category</th><th>Score</th></tr>
+                <tr><td>Setup</td><td>${realReportMetrics?.categoryAverages.setup || 'N/A'}</td></tr>
+                <tr><td>Attitude</td><td>${realReportMetrics?.categoryAverages.attitude || 'N/A'}</td></tr>
+                <tr><td>Preparation</td><td>${realReportMetrics?.categoryAverages.preparation || 'N/A'}</td></tr>
+                <tr><td>Teaching</td><td>${realReportMetrics?.categoryAverages.teaching || 'N/A'}</td></tr>
+                <tr><td>Curriculum</td><td>${realReportMetrics?.categoryAverages.curriculum || 'N/A'}</td></tr>
+                <tr><td>Feedback</td><td>${realReportMetrics?.categoryAverages.feedback || 'N/A'}</td></tr>
+            </table>
+            `}
+            
+            <h2>Top Performers</h2>
+            <table>
+                <tr><th>Rank</th><th>Tutor ID</th><th>Score</th><th>Sessions</th></tr>
+                ${biMetrics.topPerformers.map((t, i) => `<tr><td>${i + 1}</td><td>${t.tutorId}</td><td>${t.score}%</td><td>${t.sessionCount}</td></tr>`).join('')}
+            </table>
+            
+            <h2>Needs Improvement</h2>
+            <table>
+                <tr><th>Rank</th><th>Tutor ID</th><th>Score</th><th>Sessions</th></tr>
+                ${biMetrics.bottomPerformers.map((t, i) => `<tr><td>${i + 1}</td><td>${t.tutorId}</td><td>${t.score}%</td><td>${t.sessionCount}</td></tr>`).join('')}
+            </table>
+            
+            <div style="margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 8px; text-align: center; color: #666;">
+                <p style="margin: 0;">Report generated by iSchool AI Quality System</p>
+                <p style="margin: 5px 0 0 0; font-size: 0.9rem;">Powered by Gemini 3.0 Flash Analysis</p>
+            </div>
+            </div>
+        </body>
+        </html>
+    `);
+}
+
+// ===== Human vs AI Comparison =====
+function calculateHumanVsAIComparison() {
+    // Only compare sessions with actual human scores (not audit approval)
+    const sessionsWithBoth = filteredSessions.filter(s => 
+        s.aiScore && s.humanScore && typeof s.humanScore === 'number'
+    );
+
+    if (sessionsWithBoth.length === 0) {
+        return {
+            totalCompared: 0,
+            totalAvailable: filteredSessions.length,
+            withAIScore: filteredSessions.filter(s => s.aiScore).length,
+            withHumanScore: filteredSessions.filter(s => s.humanScore).length,
+            agreement: 0,
+            disagreement: 0,
+            avgAIScore: 0,
+            avgHumanScore: 0,
+            aiHigher: 0,
+            humanHigher: 0,
+            matched: 0,
+            scoreDiff: 0,
+            categories: null
+        };
+    }
+
+    let agreement = 0;
+    let aiScoreSum = 0;
+    let humanScoreSum = 0;
+    let aiHigher = 0;
+    let humanHigher = 0;
+    let matched = 0;
+    let diffSum = 0;
+
+    // Category-level comparison
+    const categoryComparison = {
+        setup: { ai: [], human: [], diff: [] },
+        attitude: { ai: [], human: [], diff: [] },
+        preparation: { ai: [], human: [], diff: [] },
+        teaching: { ai: [], human: [], diff: [] },
+        curriculum: { ai: [], human: [], diff: [] },
+        feedback: { ai: [], human: [], diff: [] }
+    };
+
+    sessionsWithBoth.forEach(session => {
+        const aiScore = session.aiScore || 0;
+        const humanScore = session.humanScore || 0;
+        
+        aiScoreSum += aiScore;
+        humanScoreSum += humanScore;
+        
+        const diff = Math.abs(aiScore - humanScore);
+        diffSum += diff;
+        
+        if (diff <= 10) {
+            agreement++;
+            matched++;
+        }
+        
+        if (aiScore > humanScore + 10) aiHigher++;
+        if (humanScore > aiScore + 10) humanHigher++;
+
+        // Collect category scores if available
+        if (session.categoryScores) {
+            Object.keys(categoryComparison).forEach(cat => {
+                if (session.categoryScores.ai && session.categoryScores.ai[cat]) {
+                    categoryComparison[cat].ai.push(session.categoryScores.ai[cat]);
+                }
+                if (session.categoryScores.human && session.categoryScores.human[cat]) {
+                    categoryComparison[cat].human.push(session.categoryScores.human[cat]);
+                    const catDiff = Math.abs(
+                        (session.categoryScores.ai[cat] || 0) - 
+                        (session.categoryScores.human[cat] || 0)
+                    );
+                    categoryComparison[cat].diff.push(catDiff);
+                }
+            });
+        }
+    });
+
+    // Calculate category averages
+    const categories = {};
+    Object.keys(categoryComparison).forEach(cat => {
+        if (categoryComparison[cat].ai.length > 0 && categoryComparison[cat].human.length > 0) {
+            categories[cat] = {
+                avgAI: Math.round(categoryComparison[cat].ai.reduce((a,b) => a+b, 0) / categoryComparison[cat].ai.length),
+                avgHuman: Math.round(categoryComparison[cat].human.reduce((a,b) => a+b, 0) / categoryComparison[cat].human.length),
+                avgDiff: Math.round(categoryComparison[cat].diff.reduce((a,b) => a+b, 0) / categoryComparison[cat].diff.length)
+            };
+        }
+    });
+
+    return {
+        totalCompared: sessionsWithBoth.length,
+        totalAvailable: filteredSessions.length,
+        withAIScore: filteredSessions.filter(s => s.aiScore).length,
+        withHumanScore: filteredSessions.filter(s => s.humanScore).length,
+        agreement: Math.round((agreement / sessionsWithBoth.length) * 100),
+        disagreement: Math.round(((sessionsWithBoth.length - agreement) / sessionsWithBoth.length) * 100),
+        avgAIScore: Math.round(aiScoreSum / sessionsWithBoth.length),
+        avgHumanScore: Math.round(humanScoreSum / sessionsWithBoth.length),
+        scoreDiff: Math.round(diffSum / sessionsWithBoth.length),
+        aiHigher: aiHigher,
+        humanHigher: humanHigher,
+        matched: matched,
+        sessions: sessionsWithBoth,
+        categories: Object.keys(categories).length > 0 ? categories : null
+    };
+}
+
+function displayHumanVsAIComparison() {
+    const container = document.getElementById('humanVsAIContainer');
+    if (!container || !biMetrics.humanVsAI) return;
+
+    const comparison = biMetrics.humanVsAI;
+    
+    if (comparison.totalCompared === 0) {
+        container.innerHTML = `
+            <div style="padding: 2rem; text-align: center; background: #f8f9fa; border-radius: 12px;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
+                <h3 style="color: #1a1a2e; margin-bottom: 1rem;">No Comparison Data Available</h3>
+                <p style="color: #666; margin-bottom: 0.5rem;">Human vs AI comparison requires sessions with both scores.</p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1.5rem; max-width: 600px; margin-left: auto; margin-right: auto;">
+                    <div style="background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div style="font-size: 1.5rem; font-weight: bold; color: #667eea;">${comparison.totalAvailable}</div>
+                        <div style="font-size: 0.85rem; color: #666;">Total Sessions</div>
+                    </div>
+                    <div style="background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div style="font-size: 1.5rem; font-weight: bold; color: #f5576c;">${comparison.withAIScore}</div>
+                        <div style="font-size: 0.85rem; color: #666;">With AI Score</div>
+                    </div>
+                    <div style="background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div style="font-size: 1.5rem; font-weight: bold; color: #4facfe;">${comparison.withHumanScore}</div>
+                        <div style="font-size: 0.85rem; color: #666;">With Human Score</div>
+                    </div>
+                </div>
+                <p style="color: #888; font-size: 0.9rem; margin-top: 1.5rem;">💡 Tip: Upload CSV with human scores or ensure JSON reports include humanScore field.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const agreementColor = comparison.agreement >= 80 ? '#27ae60' : comparison.agreement >= 70 ? '#2ecc71' : comparison.agreement >= 60 ? '#f39c12' : '#e74c3c';
+    const scoreDiff = comparison.avgAIScore - comparison.avgHumanScore;
+    const scoreDiffText = scoreDiff > 0 ? `AI scores ${Math.abs(scoreDiff)}% higher on average` : 
+                         scoreDiff < 0 ? `Human scores ${Math.abs(scoreDiff)}% higher on average` : 
+                         'Perfect alignment';
+    const coveragePercent = Math.round((comparison.totalCompared / comparison.totalAvailable) * 100);
+
+    container.innerHTML = `
+        <!-- Coverage Stats -->
+        <div style="background: linear-gradient(135deg, #e0e7ff 0%, #f0f4ff 100%); padding: 1.25rem; border-radius: 12px; margin-bottom: 1.5rem; border-left: 4px solid #667eea;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.25rem;">Comparison Coverage</div>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #667eea;">${comparison.totalCompared} of ${comparison.totalAvailable} sessions (${coveragePercent}%)</div>
+                </div>
+                <div style="display: flex; gap: 1.5rem;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.25rem; font-weight: bold; color: #f5576c;">🤖 ${comparison.withAIScore}</div>
+                        <div style="font-size: 0.75rem; color: #666;">AI Analyzed</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.25rem; font-weight: bold; color: #4facfe;">👤 ${comparison.withHumanScore}</div>
+                        <div style="font-size: 0.75rem; color: #666;">Human Reviewed</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Metrics -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+            <div class="comparison-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);">
+                <div style="font-size: 2.5rem; font-weight: bold; margin-bottom: 0.5rem;">${comparison.totalCompared}</div>
+                <div style="opacity: 0.9;">Sessions Compared</div>
+                <div style="font-size: 0.8rem; opacity: 0.75; margin-top: 0.5rem;">Avg Difference: ${comparison.scoreDiff}%</div>
+            </div>
+            
+            <div class="comparison-card" style="background: ${agreementColor}; color: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                <div style="font-size: 2.5rem; font-weight: bold; margin-bottom: 0.5rem;">${comparison.agreement}%</div>
+                <div style="opacity: 0.9;">Agreement Rate</div>
+                <div style="font-size: 0.85rem; opacity: 0.8; margin-top: 0.25rem;">±10 points threshold</div>
+            </div>
+            
+            <div class="comparison-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3);">
+                <div style="font-size: 2.5rem; font-weight: bold; margin-bottom: 0.5rem;">${comparison.avgAIScore}%</div>
+                <div style="opacity: 0.9;">Average AI Score</div>
+            </div>
+            
+            <div class="comparison-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);">
+                <div style="font-size: 2.5rem; font-weight: bold; margin-bottom: 0.5rem;">${comparison.avgHumanScore}%</div>
+                <div style="opacity: 0.9;">Average Human Score</div>
+            </div>
+        </div>
+
+        <div style="background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 1.5rem;">
+            <h3 style="margin: 0 0 1rem 0; color: #1a1a2e; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                <span>📊</span> Detailed Analysis
+            </h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 8px; border: 2px solid #667eea;">
+                    <div style="font-size: 1.75rem; font-weight: bold; color: #667eea;">${comparison.matched}</div>
+                    <div style="color: #666; font-size: 0.9rem; margin-top: 0.25rem;">Closely Matched</div>
+                    <div style="font-size: 0.75rem; color: #999; margin-top: 0.25rem;">${Math.round((comparison.matched/comparison.totalCompared)*100)}% of total</div>
+                </div>
+                <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 8px; border: 2px solid #f5576c;">
+                    <div style="font-size: 1.75rem; font-weight: bold; color: #f5576c;">${comparison.aiHigher}</div>
+                    <div style="color: #666; font-size: 0.9rem; margin-top: 0.25rem;">AI Scored Higher</div>
+                    <div style="font-size: 0.75rem; color: #999; margin-top: 0.25rem;">${Math.round((comparison.aiHigher/comparison.totalCompared)*100)}% of total</div>
+                </div>
+                <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 8px; border: 2px solid #4facfe;">
+                    <div style="font-size: 1.75rem; font-weight: bold; color: #4facfe;">${comparison.humanHigher}</div>
+                    <div style="color: #666; font-size: 0.9rem; margin-top: 0.25rem;">Human Scored Higher</div>
+                    <div style="font-size: 0.75rem; color: #999; margin-top: 0.25rem;">${Math.round((comparison.humanHigher/comparison.totalCompared)*100)}% of total</div>
+                </div>
+            </div>
+            <!-- Distribution Bars -->
+            <div style="margin-top: 1rem;">
+                <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">Score Distribution</div>
+                <div style="display: flex; height: 30px; border-radius: 6px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <div style="background: #4facfe; width: ${Math.round((comparison.humanHigher/comparison.totalCompared)*100)}%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: bold;">
+                        ${comparison.humanHigher > 0 ? Math.round((comparison.humanHigher/comparison.totalCompared)*100) + '%' : ''}
+                    </div>
+                    <div style="background: #667eea; width: ${Math.round((comparison.matched/comparison.totalCompared)*100)}%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: bold;">
+                        ${comparison.matched > 0 ? Math.round((comparison.matched/comparison.totalCompared)*100) + '%' : ''}
+                    </div>
+                    <div style="background: #f5576c; width: ${Math.round((comparison.aiHigher/comparison.totalCompared)*100)}%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: bold;">
+                        ${comparison.aiHigher > 0 ? Math.round((comparison.aiHigher/comparison.totalCompared)*100) + '%' : ''}
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.75rem; color: #999;">
+                    <span>👤 Human Higher</span>
+                    <span>✓ Matched</span>
+                    <span>🤖 AI Higher</span>
+                </div>
+            </div>
+        </div>
+
+        ${comparison.categories ? `
+        <!-- Category Breakdown -->
+        <div style="background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 1.5rem;">
+            <h3 style="margin: 0 0 1.25rem 0; color: #1a1a2e; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                <span>📋</span> SAPTCF Category Comparison
+            </h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                ${Object.entries(comparison.categories).map(([cat, data]) => {
+                    const catDiff = data.avgAI - data.avgHuman;
+                    const catColor = Math.abs(catDiff) <= 5 ? '#27ae60' : Math.abs(catDiff) <= 10 ? '#f39c12' : '#e74c3c';
+                    const catLabel = cat.charAt(0).toUpperCase() + cat.slice(1);
+                    return `
+                        <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border-left: 3px solid ${catColor};">
+                            <div style="font-weight: 600; color: #1a1a2e; margin-bottom: 0.75rem; font-size: 0.95rem;">${catLabel}</div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <span style="color: #666; font-size: 0.85rem;">🤖 AI:</span>
+                                <span style="font-weight: bold; color: #f5576c;">${data.avgAI}%</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <span style="color: #666; font-size: 0.85rem;">👤 Human:</span>
+                                <span style="font-weight: bold; color: #4facfe;">${data.avgHuman}%</span>
+                            </div>
+                            <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #ddd;">
+                                <div style="font-size: 0.8rem; color: #666;">Avg Difference</div>
+                                <div style="font-weight: bold; color: ${catColor}; font-size: 0.95rem;">±${data.avgDiff}%</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+        ` : ''}
+
+        <!-- Key Finding -->
+        <div style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 1.25rem; border-radius: 12px; border-left: 4px solid #f39c12;">
+            <div style="font-weight: 600; color: #1a1a2e; margin-bottom: 0.5rem;">💡 Key Finding</div>
+            <div style="color: #333;">${scoreDiffText}. ${comparison.agreement >= 80 ? 'Excellent alignment between human and AI assessments!' : comparison.agreement >= 70 ? 'Strong correlation between human and AI assessments.' : comparison.agreement >= 60 ? 'Moderate agreement. Consider calibration review.' : 'Low agreement detected. Review scoring criteria and training.'}</div>
+        </div>
+    `;
+
+    // Update comparison chart
+    updateHumanVsAIChart();
+}
+
+function updateHumanVsAIChart() {
+    if (!biMetrics.humanVsAI || !biMetrics.humanVsAI.sessions) return;
+
+    const ctx = document.getElementById('humanVsAIChart');
+    if (!ctx) return;
+
+    const sessions = biMetrics.humanVsAI.sessions.slice(0, 20); // Show first 20
+    const labels = sessions.map((s, i) => s.tutorId || `Session ${i + 1}`);
+    const aiScores = sessions.map(s => s.aiScore || 0);
+    const humanScores = sessions.map(s => s.humanScore || 0);
+
+    if (window.humanVsAIChartInstance) {
+        window.humanVsAIChartInstance.destroy();
+    }
+
+    window.humanVsAIChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'AI Score',
+                    data: aiScores,
+                    borderColor: '#f5576c',
+                    backgroundColor: 'rgba(245, 87, 108, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                },
+                {
+                    label: 'Human Score',
+                    data: humanScores,
+                    borderColor: '#4facfe',
+                    backgroundColor: 'rgba(79, 172, 254, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        font: { size: 12, weight: 'bold' },
+                        padding: 15
+                    }
+                },
+                title: {
+                    display: true,
+                    text: 'Human vs AI Score Comparison by Session',
+                    font: { size: 14, weight: 'bold' }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y + '%';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 45
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ===== Advanced Analytics =====
+function calculateTrends() {
+    if (!realReportMetrics || !realReportMetrics.tutorScores) return null;
+    
+    const scores = realReportMetrics.tutorScores.map(t => t.overall);
+    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+    const variance = scores.reduce((sum, score) => sum + Math.pow(score - avg, 2), 0) / scores.length;
+    const stdDev = Math.sqrt(variance);
+    
+    return {
+        average: Math.round(avg),
+        median: scores.sort((a, b) => a - b)[Math.floor(scores.length / 2)],
+        stdDev: Math.round(stdDev * 10) / 10,
+        min: Math.min(...scores),
+        max: Math.max(...scores),
+        range: Math.max(...scores) - Math.min(...scores)
+    };
+}
+
+function getInsights() {
+    const insights = [];
+    
+    if (biMetrics.avgPerformance >= 85) {
+        insights.push({ type: 'success', text: '🎉 Excellent overall performance! Team is exceeding expectations.' });
+    } else if (biMetrics.avgPerformance < 70) {
+        insights.push({ type: 'warning', text: '⚠️ Performance below target. Consider additional training programs.' });
+    }
+    
+    if (biMetrics.criticalFlags > 5) {
+        insights.push({ type: 'alert', text: '🚨 High number of critical flags detected. Immediate attention required.' });
+    }
+    
+    if (realReportMetrics && realReportMetrics.categoryAverages) {
+        const weakest = Object.entries(realReportMetrics.categoryAverages)
+            .sort((a, b) => a[1] - b[1])[0];
+        if (weakest && weakest[1] < 75) {
+            insights.push({ type: 'info', text: `📚 Focus area: ${weakest[0].toUpperCase()} (${weakest[1]}%). Consider targeted coaching.` });
+        }
+        
+        const strongest = Object.entries(realReportMetrics.categoryAverages)
+            .sort((a, b) => b[1] - a[1])[0];
+        if (strongest && strongest[1] >= 90) {
+            insights.push({ type: 'success', text: `⭐ Outstanding performance in ${strongest[0].toUpperCase()} (${strongest[1]}%). Keep it up!` });
+        }
+    }
+    
+    if (biMetrics.topPerformers && biMetrics.topPerformers.length > 0) {
+        const top = biMetrics.topPerformers[0];
+        insights.push({ type: 'info', text: `🏆 Top performer: ${top.tutorId} with ${top.score}% average across ${top.sessionCount} sessions.` });
+    }
+    
+    if (filteredSessions.length < allSessions.length) {
+        insights.push({ type: 'info', text: `🔍 Showing ${filteredSessions.length} of ${allSessions.length} total sessions based on active filters.` });
+    }
+    
+    // Human vs AI comparison insights
+    if (biMetrics.humanVsAI && biMetrics.humanVsAI.totalCompared > 0) {
+        const comparison = biMetrics.humanVsAI;
+        
+        if (comparison.agreement >= 80) {
+            insights.push({ type: 'success', text: `🤝 Excellent agreement (${comparison.agreement}%) between human and AI assessments!` });
+        } else if (comparison.agreement < 60) {
+            insights.push({ type: 'warning', text: `⚖️ Low agreement (${comparison.agreement}%) between human and AI. Review scoring criteria.` });
+        }
+        
+        if (comparison.aiHigher > comparison.humanHigher * 1.5) {
+            insights.push({ type: 'info', text: `🤖 AI tends to score ${Math.round((comparison.aiHigher/comparison.totalCompared)*100)}% higher. Consider bias calibration.` });
+        } else if (comparison.humanHigher > comparison.aiHigher * 1.5) {
+            insights.push({ type: 'info', text: `👤 Humans tend to score ${Math.round((comparison.humanHigher/comparison.totalCompared)*100)}% higher. Review human auditor training.` });
+        }
+    }
+    
+    return insights;
+}
+
+function displayInsights() {
+    const container = document.getElementById('insightsContainer');
+    if (!container) return;
+    
+    const insights = getInsights();
+    
+    if (insights.length === 0) {
+        container.innerHTML = '<p style="color: #666;">No specific insights available. Continue monitoring performance.</p>';
+        return;
+    }
+    
+    container.innerHTML = insights.map(insight => {
+        const colors = {
+            success: { bg: 'rgba(46, 204, 113, 0.1)', border: '#27ae60', icon: '✓' },
+            warning: { bg: 'rgba(241, 196, 15, 0.1)', border: '#f39c12', icon: '⚠' },
+            alert: { bg: 'rgba(231, 76, 60, 0.1)', border: '#e74c3c', icon: '!' },
+            info: { bg: 'rgba(52, 152, 219, 0.1)', border: '#3498db', icon: 'i' }
+        };
+        
+        const style = colors[insight.type] || colors.info;
+        
+        return `
+            <div style="
+                background: ${style.bg};
+                border-left: 4px solid ${style.border};
+                padding: 1rem 1.25rem;
+                border-radius: 8px;
+                display: flex;
+                align-items: start;
+                gap: 0.75rem;
+            ">
+                <span style="
+                    font-weight: bold;
+                    color: ${style.border};
+                    font-size: 1.1rem;
+                ">${style.icon}</span>
+                <p style="margin: 0; color: #1a1a2e; line-height: 1.5;">${insight.text}</p>
+            </div>
+        `;
+    }).join('');
+}
+
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed; top: 20px; right: 20px; z-index: 10000;
+        padding: 15px 20px; border-radius: 8px; color: white; font-weight: 500;
+        background: ${type === 'success' ? '#27ae60' : type === 'error' ? '#e74c3c' : '#3498db'};
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        animation: slideIn 0.3s ease;
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
 }
 
 // ===== Loading States =====

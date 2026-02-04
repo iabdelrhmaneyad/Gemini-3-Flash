@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backend API Test</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 40px 20px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { color: white; text-align: center; margin-bottom: 30px; font-size: 2.5rem; }
+        .card { background: white; border-radius: 12px; padding: 30px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+        .card h2 { color: #1a1a2e; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        .status { display: inline-block; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 600; }
+        .status.healthy { background: #27ae60; color: white; }
+        .status.error { background: #e74c3c; color: white; }
+        button { background: #f58220; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600; margin: 5px; transition: all 0.3s; }
+        button:hover { background: #e67310; transform: translateY(-2px); }
+        button:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+        .endpoint { background: #f5f7fa; padding: 15px; border-radius: 8px; margin: 10px 0; border-left: 4px solid #667eea; }
+        .endpoint .method { display: inline-block; padding: 4px 12px; border-radius: 4px; font-weight: 600; margin-right: 10px; font-size: 0.85rem; }
+        .endpoint .method.post { background: #27ae60; color: white; }
+        .endpoint .method.get { background: #3498db; color: white; }
+        .endpoint .url { color: #2c3e50; font-family: 'Courier New', monospace; }
+        .response { background: #2c3e50; color: #27ae60; padding: 15px; border-radius: 8px; margin-top: 15px; font-family: 'Courier New', monospace; font-size: 0.9rem; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
+        .info-box { background: linear-gradient(135deg, #e0e7ff 0%, #f0f4ff 100%); padding: 20px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #667eea; }
+        .info-box strong { color: #667eea; }
+        input { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; margin: 8px 0; font-size: 1rem; }
+        input:focus { outline: none; border-color: #667eea; }
+        .test-section { margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Backend API Test Interface</h1>
+        
+        <div class="card">
+            <h2>🏥 Health Check</h2>
+            <button onclick="checkHealth()">Check Health</button>
+            <div id="healthStatus"></div>
+        </div>
+
+        <div class="card">
+            <h2>🔐 Authentication</h2>
+            
+            <div class="test-section">
+                <h3>Sign Up</h3>
+                <input type="email" id="signupEmail" placeholder="Email">
+                <input type="password" id="signupPassword" placeholder="Password">
+                <input type="text" id="signupName" placeholder="Full Name">
+                <button onclick="signup()">Create Account</button>
+                <div id="signupResponse"></div>
+            </div>
+
+            <div class="test-section">
+                <h3>Sign In</h3>
+                <input type="email" id="signinEmail" placeholder="Email" value="admin@ischool.com">
+                <input type="password" id="signinPassword" placeholder="Password" value="admin123">
+                <button onclick="signin()">Sign In</button>
+                <div id="signinResponse"></div>
+            </div>
+
+            <div class="info-box" id="tokenInfo" style="display: none;">
+                <strong>🎫 Token Saved:</strong> <span id="tokenDisplay"></span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📊 Dashboard Stats</h2>
+            <button onclick="getDashboardStats()" id="statsBtn" disabled>Get Stats (Sign in first)</button>
+            <div id="statsResponse"></div>
+        </div>
+
+        <div class="card">
+            <h2>📚 Available Endpoints</h2>
+            
+            <div class="endpoint">
+                <span class="method post">POST</span>
+                <span class="url">/auth/signup</span>
+                <p style="margin-top: 10px; color: #666;">Create a new user account</p>
+            </div>
+
+            <div class="endpoint">
+                <span class="method post">POST</span>
+                <span class="url">/auth/signin</span>
+                <p style="margin-top: 10px; color: #666;">Login and receive JWT token</p>
+            </div>
+
+            <div class="endpoint">
+                <span class="method get">GET</span>
+                <span class="url">/auth/user</span>
+                <p style="margin-top: 10px; color: #666;">Get current user info (requires auth)</p>
+            </div>
+
+            <div class="endpoint">
+                <span class="method get">GET</span>
+                <span class="url">/api/tutors</span>
+                <p style="margin-top: 10px; color: #666;">List all tutors (requires auth)</p>
+            </div>
+
+            <div class="endpoint">
+                <span class="method post">POST</span>
+                <span class="url">/api/tutors</span>
+                <p style="margin-top: 10px; color: #666;">Create new tutor (requires auth)</p>
+            </div>
+
+            <div class="endpoint">
+                <span class="method get">GET</span>
+                <span class="url">/api/sessions</span>
+                <p style="margin-top: 10px; color: #666;">List all sessions (requires auth)</p>
+            </div>
+
+            <div class="endpoint">
+                <span class="method post">POST</span>
+                <span class="url">/api/sessions</span>
+                <p style="margin-top: 10px; color: #666;">Create new session (requires auth)</p>
+            </div>
+
+            <div class="endpoint">
+                <span class="method get">GET</span>
+                <span class="url">/api/dashboard/stats</span>
+                <p style="margin-top: 10px; color: #666;">Get dashboard statistics (requires auth)</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:4000';
+        let authToken = null;
+
+        async function checkHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                document.getElementById('healthStatus').innerHTML = `
+                    <div class="response">
+${JSON.stringify(data, null, 2)}
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('healthStatus').innerHTML = `
+                    <div class="response" style="color: #e74c3c;">Error: ${error.message}</div>
+                `;
+            }
+        }
+
+        async function signup() {
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+            const full_name = document.getElementById('signupName').value;
+
+            if (!email || !password) {
+                alert('Email and password required');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, full_name, role: 'reviewer' })
+                });
+                const data = await response.json();
+                document.getElementById('signupResponse').innerHTML = `
+                    <div class="response">
+${JSON.stringify(data, null, 2)}
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('signupResponse').innerHTML = `
+                    <div class="response" style="color: #e74c3c;">Error: ${error.message}</div>
+                `;
+            }
+        }
+
+        async function signin() {
+            const email = document.getElementById('signinEmail').value;
+            const password = document.getElementById('signinPassword').value;
+
+            if (!email || !password) {
+                alert('Email and password required');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/signin`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await response.json();
+                
+                if (data.token) {
+                    authToken = data.token;
+                    document.getElementById('tokenInfo').style.display = 'block';
+                    document.getElementById('tokenDisplay').textContent = authToken.substring(0, 50) + '...';
+                    document.getElementById('statsBtn').disabled = false;
+                }
+
+                document.getElementById('signinResponse').innerHTML = `
+                    <div class="response">
+${JSON.stringify(data, null, 2)}
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('signinResponse').innerHTML = `
+                    <div class="response" style="color: #e74c3c;">Error: ${error.message}</div>
+                `;
+            }
+        }
+
+        async function getDashboardStats() {
+            if (!authToken) {
+                alert('Please sign in first');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/dashboard/stats`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await response.json();
+                document.getElementById('statsResponse').innerHTML = `
+                    <div class="response">
+${JSON.stringify(data, null, 2)}
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('statsResponse').innerHTML = `
+                    <div class="response" style="color: #e74c3c;">Error: ${error.message}</div>
+                `;
+            }
+        }
+
+        // Check health on load
+        window.onload = () => {
+            checkHealth();
+        };
+    </script>
+</body>
+</html>

@@ -280,9 +280,26 @@
                     </select>
                 </div>
                 <div class="filter-group">
-                    <button class="btn btn-primary" id="applyFiltersBtn">Apply Filters</button>
-                    <button class="btn btn-secondary" id="resetFiltersBtn">Reset</button>
+                    <label>Status</label>
+                    <select id="statusFilter" class="filter-select">
+                        <option value="all">All Statuses</option>
+                        <option value="completed">Completed</option>
+                        <option value="analyzing">Analyzing</option>
+                        <option value="pending">Pending</option>
+                    </select>
                 </div>
+            </div>
+            <div class="filters-actions" style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
+                <button class="btn btn-secondary" onclick="resetFilters()">Reset All</button>
+            </div>
+        </section>
+
+        <!-- AI Insights Section -->
+        <section class="insights-section card" style="margin-bottom: 2rem; padding: 1.5rem;">
+            <h2 class="section-title">🔍 AI-Powered Insights</h2>
+            <div id="insightsContainer" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <!-- Dynamic insights will be populated here -->
             </div>
         </section>
 
@@ -388,6 +405,20 @@
                     <div class="letter">F</div>
                     <div class="score" id="scoreFeedback">--</div>
                     <div class="label">Feedback</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Human vs AI Comparison -->
+        <section class="comparison-section">
+            <h2 class="section-title">🤖 Human vs AI Analysis</h2>
+            <div id="humanVsAIContainer">
+                <!-- Dynamic comparison metrics will be populated here -->
+            </div>
+            <div class="chart-card card" style="margin-top: 1.5rem;">
+                <h3 class="chart-title">Score Comparison by Session</h3>
+                <div style="height: 400px; position: relative;">
+                    <canvas id="humanVsAIChart"></canvas>
                 </div>
             </div>
         </section>

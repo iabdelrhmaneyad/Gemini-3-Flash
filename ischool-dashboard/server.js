@@ -626,7 +626,46 @@ app.post('/api/upload-csv', upload.single('csvFile'), async (req, res) => {
 
 // Get all sessions
 app.get('/api/sessions', (req, res) => {
-  res.json(sessionData);
+  // Enrich sessions with human scores from JSON reports or CSV data
+  const enrichedSessions = sessionData.map(session => {
+    let humanScore = null;
+    
+    // Try to get human score from CSV humanReport field
+    if (session.humanReport && session.humanReport.score) {
+      const score = parseFloat(session.humanReport.score);
+      if (!isNaN(score)) {
+        // Convert to 0-100 scale if needed
+        humanScore = score <= 5 ? Math.round(score * 20) : Math.round(score);
+      }
+    }
+    
+    // Try to get from JSON report if available
+    if (!humanScore) {
+      const jsonReportPath = path.join(__dirname, '..', 'Sessions', session.tutorId, `Quality_Report_RAG_${session.tutorId}.json`);
+      if (fs.existsSync(jsonReportPath)) {
+        try {
+          const jsonData = JSON.parse(fs.readFileSync(jsonReportPath, 'utf8'));
+          if (jsonData.humanScore && typeof jsonData.humanScore === 'number') {
+            humanScore = jsonData.humanScore;
+          } else if (jsonData.scoring && jsonData.scoring.final_weighted_score) {
+            // Use AI score as fallback only if explicitly marked as human reviewed
+            if (jsonData.humanReviewed) {
+              humanScore = Math.round(jsonData.scoring.final_weighted_score);
+            }
+          }
+        } catch (e) {
+          // Silently fail
+        }
+      }
+    }
+    
+    return {
+      ...session,
+      humanScore: humanScore
+    };
+  });
+  
+  res.json(enrichedSessions);
 });
 
 // Get session analytics
@@ -968,8 +1007,18 @@ app.get('/api/bi/metrics', async (req, res) => {
         teaching: 0,
         feedback: 0
       },
+      humanCategoryAverages: {
+        setup: 0,
+        attitude: 0,
+        preparation: 0,
+        curriculum: 0,
+        teaching: 0,
+        feedback: 0
+      },
       overallAverage: 0,
-      totalReports: 0
+      humanOverallAverage: 0,
+      totalReports: 0,
+      totalHumanReports: 0
     };
 
     // Parse all available reports
@@ -984,26 +1033,17 @@ app.get('/api/bi/metrics', async (req, res) => {
         try {
           const jsonData = JSON.parse(fs.readFileSync(jsonReportPath, 'utf8'));
           if (jsonData.scoring && jsonData.scoring.averages) {
+            // JSON averages are on 0-5 scale, convert to 0-100 for BI charts
+            const avg = jsonData.scoring.averages;
             scores = {
-              setup: Math.round(jsonData.scoring.averages.setup * 20), // Convert 5-scale to 100-scale? Or keep 5? 
-              // Wait, BI chart uses 0-100 usually. But HTML report shows /5.
-              // Let's check chart logic. If chart expects 0-100, we multiply * 20.
-              // Previous logic used parseInt(match[1]) where text was "Setup: 85". So it was 100-scale.
-              // The new JSON averages are 0-5. So we must multiply by 20.
-              attitude: Math.round(jsonData.scoring.averages.attitude * 20),
-              preparation: Math.round(jsonData.scoring.averages.preparation * 20),
-              curriculum: Math.round(jsonData.scoring.averages.curriculum * 20),
-              teaching: Math.round(jsonData.scoring.averages.teaching * 20),
-              feedback: 85, // JSON average might not have feedback specific rating, usually included in others or implicit?
-              // RAG JSON schema has "averages": {setup, attitude, prep, curr, teaching}. Feedback is not in average list in python script?
-              // Let's check python script line 790. "Feedback" is missing from averages keys?
-              // Python weights: setup, attitude, prep, curriculum, teaching. No Feedback category in weights?
-              // But SAPTCF has F.
-              // If Feedback is missing, we default to a safe value or calc from valid items.
+              setup: Math.round(avg.setup * 20),
+              attitude: Math.round(avg.attitude * 20),
+              preparation: Math.round(avg.preparation * 20),
+              curriculum: Math.round(avg.curriculum * 20),
+              teaching: Math.round(avg.teaching * 20),
+              feedback: Math.round(avg.teaching * 20), // Feedback inherits teaching score
               overall: Math.round(jsonData.scoring.final_weighted_score)
             };
-            // Add Feedback if missing (hack)
-            scores.feedback = scores.teaching;
           }
         } catch (e) {
           console.error(`Error parsing JSON report for ${session.tutorId}:`, e);
@@ -1034,6 +1074,32 @@ app.get('/api/bi/metrics', async (req, res) => {
         metrics.overallAverage += scores.overall;
         metrics.totalReports++;
       }
+
+      // Try to get human scores
+      if (session.humanReport && session.humanReport.score) {
+        const humanScore = parseFloat(session.humanReport.score);
+        if (!isNaN(humanScore)) {
+          // If human has category breakdown, use it
+          if (session.humanReport.categories) {
+            Object.keys(metrics.humanCategoryAverages).forEach(cat => {
+              if (session.humanReport.categories[cat]) {
+                const score = parseFloat(session.humanReport.categories[cat]);
+                if (!isNaN(score)) {
+                  metrics.humanCategoryAverages[cat] += score <= 5 ? score * 20 : score;
+                }
+              }
+            });
+          } else if (scores) {
+            // Use AI categories as proxy if no human category breakdown
+            Object.keys(metrics.humanCategoryAverages).forEach(cat => {
+              metrics.humanCategoryAverages[cat] += scores[cat] || 0;
+            });
+          }
+          const normalizedHumanScore = humanScore <= 5 ? humanScore * 20 : humanScore;
+          metrics.humanOverallAverage += normalizedHumanScore;
+          metrics.totalHumanReports++;
+        }
+      }
     }
 
     // Calculate averages
@@ -1045,6 +1111,16 @@ app.get('/api/bi/metrics', async (req, res) => {
       metrics.categoryAverages.teaching = Math.round(metrics.categoryAverages.teaching / metrics.totalReports);
       metrics.categoryAverages.feedback = Math.round(metrics.categoryAverages.feedback / metrics.totalReports);
       metrics.overallAverage = Math.round(metrics.overallAverage / metrics.totalReports);
+    }
+
+    if (metrics.totalHumanReports > 0) {
+      metrics.humanCategoryAverages.setup = Math.round(metrics.humanCategoryAverages.setup / metrics.totalHumanReports);
+      metrics.humanCategoryAverages.attitude = Math.round(metrics.humanCategoryAverages.attitude / metrics.totalHumanReports);
+      metrics.humanCategoryAverages.preparation = Math.round(metrics.humanCategoryAverages.preparation / metrics.totalHumanReports);
+      metrics.humanCategoryAverages.curriculum = Math.round(metrics.humanCategoryAverages.curriculum / metrics.totalHumanReports);
+      metrics.humanCategoryAverages.teaching = Math.round(metrics.humanCategoryAverages.teaching / metrics.totalHumanReports);
+      metrics.humanCategoryAverages.feedback = Math.round(metrics.humanCategoryAverages.feedback / metrics.totalHumanReports);
+      metrics.humanOverallAverage = Math.round(metrics.humanOverallAverage / metrics.totalHumanReports);
     }
 
     res.json(metrics);
