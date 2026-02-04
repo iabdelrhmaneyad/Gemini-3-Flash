@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+
+# Environment
+.env
+.env.local
+
+# Session data
+Sessions/
+uploads/
+downloads/
+Repots/
+
+# Large files
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Logs
+*.log
+npm-debug.log*
+
+# Data files
+data/sessions.json
+data/audit-data.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# OAuth and API tokens
+token.pickle
+credentials.json
+client_secret.json
+*.pickle
+
+# Virtual environments
+.venv*/
+venv/
+env/
+
+# Temporary files
+temp_audio.mp3
+*.mp3

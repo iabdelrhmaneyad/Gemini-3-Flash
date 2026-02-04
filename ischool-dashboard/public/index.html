@@ -1,0 +1,2419 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iSchool AI Quality System</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/polish.css">
+    <link rel="stylesheet" href="css/report-modal.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        /* Professional Dashboard Styling - Matching BI Dashboard */
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-bottom: 3px solid #f58220;
+            padding: 1rem 2rem;
+        }
+        
+        .header h1 {
+            color: white;
+            font-weight: 700;
+        }
+        
+        .header p {
+            color: rgba(255,255,255,0.7);
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 16px;
+            border: 1px solid rgba(0,0,0,0.05);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .section-header h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .section-header h2::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(180deg, #f58220 0%, #e67310 100%);
+            border-radius: 2px;
+        }
+        
+        .section-header p {
+            color: #666;
+            font-size: 0.9rem;
+            margin-left: 14px;
+        }
+        
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .stat-card {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.25rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+        }
+        
+        .stat-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .stat-content h3 {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #1a1a2e;
+            margin: 0;
+            line-height: 1;
+        }
+        
+        .stat-content p {
+            font-size: 0.85rem;
+            color: #666;
+            margin: 0.25rem 0 0 0;
+            font-weight: 500;
+        }
+        
+        /* Upload Zone */
+        .upload-zone {
+            border: 2px dashed #d1d5db;
+            border-radius: 12px;
+            padding: 2.5rem;
+            text-align: center;
+            transition: all 0.3s;
+            background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
+            cursor: pointer;
+        }
+        
+        .upload-zone:hover {
+            border-color: #f58220;
+            background: linear-gradient(135deg, #fff8f0 0%, #fff 100%);
+        }
+        
+        .upload-zone.drag-over {
+            border-color: #f58220;
+            background: rgba(245, 130, 32, 0.1);
+        }
+        
+        .upload-zone h3 {
+            color: #1a1a2e;
+            font-weight: 600;
+            margin: 1rem 0 0.5rem;
+        }
+        
+        .upload-zone p {
+            color: #888;
+            font-size: 0.9rem;
+        }
+        
+        .upload-icon {
+            color: #f58220;
+        }
+        
+        /* Table Styling */
+        .sessions-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        
+        .sessions-table th {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .sessions-table th:first-child {
+            border-radius: 8px 0 0 0;
+        }
+        
+        .sessions-table th:last-child {
+            border-radius: 0 8px 0 0;
+        }
+        
+        .sessions-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+            vertical-align: middle;
+        }
+        
+        .sessions-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+        
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        
+        .status-completed {
+            background: rgba(46, 204, 113, 0.15);
+            color: #27ae60;
+        }
+        
+        .status-pending {
+            background: rgba(245, 158, 11, 0.15);
+            color: #d97706;
+        }
+        
+        .status-failed {
+            background: rgba(239, 68, 68, 0.15);
+            color: #dc2626;
+        }
+        
+        .status-downloading {
+            background: rgba(59, 130, 246, 0.15);
+            color: #2563eb;
+        }
+        
+        .status-queued {
+            background: rgba(251, 191, 36, 0.15);
+            color: #d97706;
+        }
+        
+        .status-analyzing {
+            background: rgba(139, 92, 246, 0.15);
+            color: #7c3aed;
+        }
+        
+        /* Queue Status Card */
+        .queue-status-card {
+            position: relative;
+        }
+        
+        .queue-status-card.active {
+            animation: pulse-queue 2s infinite;
+        }
+        
+        @keyframes pulse-queue {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
+        }
+        
+        .queue-waiting-badge {
+            display: inline-block;
+            background: rgba(251, 191, 36, 0.3);
+            color: #fbbf24;
+            font-size: 0.7rem;
+            padding: 0.15rem 0.4rem;
+            border-radius: 8px;
+            margin-left: 0.25rem;
+        }
+        
+        .queue-waiting-badge.empty {
+            background: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.5);
+        }
+        
+        /* Queue Position Badge in Table */
+        .queue-position {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            background: rgba(251, 191, 36, 0.15);
+            color: #d97706;
+            font-size: 0.7rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        
+        .queue-position .position-num {
+            background: #fbbf24;
+            color: #78350f;
+            padding: 0.1rem 0.35rem;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+        
+        /* Mini Spinner for Analyzing Status */
+        .spinner-mini {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: currentColor;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 4px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .status-analyzing {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(124, 58, 237, 0.25) 100%);
+            color: #7c3aed;
+            display: inline-flex;
+            align-items: center;
+        }
+        
+        /* Progress Section - Queue Info Banner */
+        .queue-info-banner {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 1px solid #fbbf24;
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .queue-info-banner.processing {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            border-color: #3b82f6;
+        }
+        
+        .queue-info-banner .queue-icon {
+            font-size: 2rem;
+        }
+        
+        .queue-info-banner .queue-details h4 {
+            margin: 0;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #1a1a2e;
+        }
+        
+        .queue-info-banner .queue-details p {
+            margin: 0.25rem 0 0 0;
+            font-size: 0.85rem;
+            color: #666;
+        }
+        
+        .queue-info-banner .queue-stats {
+            margin-left: auto;
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        .queue-info-banner .queue-stat {
+            text-align: center;
+        }
+        
+        .queue-info-banner .queue-stat .num {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1a1a2e;
+        }
+        
+        .queue-info-banner .queue-stat .label {
+            font-size: 0.75rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Action Buttons */
+        .view-btn, .audit-btn, .report-btn, .delete-btn {
+            padding: 0.4rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            margin-right: 0.25rem;
+        }
+        
+        /* Enhanced Action Buttons */
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .action-row {
+            display: flex;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+        
+        .action-btn {
+            padding: 0.4rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            white-space: nowrap;
+        }
+        
+        .action-btn .btn-icon {
+            font-size: 0.85rem;
+        }
+        
+        /* Human Report Button */
+        .action-btn.human-btn {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            color: white;
+        }
+        
+        .action-btn.human-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.4);
+        }
+        
+        .action-btn.human-btn.disabled {
+            background: #e2e8f0;
+            color: #94a3b8;
+            cursor: not-allowed;
+        }
+        
+        /* AI Report Button */
+        .action-btn.ai-btn {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            color: white;
+        }
+        
+        .action-btn.ai-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+        }
+        
+        .action-btn.ai-btn.pending {
+            background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+        }
+        
+        /* Audit Button */
+        .action-btn.audit-pending {
+            background: linear-gradient(135deg, #f58220 0%, #e67310 100%);
+            color: white;
+        }
+        
+        .action-btn.audit-done {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+        
+        .action-btn.audit-pending:hover,
+        .action-btn.audit-done:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(245, 130, 32, 0.4);
+        }
+        
+        /* Secondary Action Buttons */
+        .action-btn.retry-btn {
+            background: #fef3c7;
+            color: #b45309;
+            font-size: 0.9rem;
+            padding: 0.4rem 0.5rem;
+        }
+        
+        .action-btn.retry-btn:hover {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        /* View Button (Google Drive) */
+        .action-btn.drive-btn {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            font-size: 0.85rem;
+            padding: 0.4rem 0.6rem;
+        }
+        
+        .action-btn.drive-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        
+        .action-btn.drive-btn:disabled {
+            background: #f1f5f9;
+            color: #94a3b8;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        
+        .action-btn.link-btn {
+            background: #f1f5f9;
+            color: #475569;
+            font-size: 0.85rem;
+            padding: 0.4rem 0.5rem;
+        }
+        
+        .action-btn.link-btn:hover:not(:disabled) {
+            background: #e2e8f0;
+            color: #1e293b;
+        }
+        
+        .action-btn.delete-btn {
+            background: #fef2f2;
+            color: #dc2626;
+            font-size: 0.85rem;
+            padding: 0.4rem 0.5rem;
+        }
+        
+        .action-btn.delete-btn:hover {
+            background: #dc2626;
+            color: white;
+        }
+        
+        .action-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        
+        /* Legacy button styles for backwards compatibility */
+        .view-btn {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+        }
+        
+        .view-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        
+        .audit-btn {
+            background: linear-gradient(135deg, #f58220 0%, #e67310 100%);
+            color: white;
+        }
+        
+        .audit-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(245, 130, 32, 0.4);
+        }
+        
+        .audit-btn.audited {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        }
+        
+        .report-btn {
+            background: linear-gradient(135deg, #9333ea 0%, #7c3aed 100%);
+            color: white;
+        }
+        
+        .report-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(147, 51, 234, 0.4);
+        }
+        
+        .delete-btn {
+            background: rgba(239, 68, 68, 0.1);
+            color: #dc2626;
+        }
+        
+        .delete-btn:hover {
+            background: #dc2626;
+            color: white;
+        }
+        
+        /* Search & Filter */
+        .search-filter-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            position: relative;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            font-family: inherit;
+        }
+        
+        .search-box input:focus {
+            outline: none;
+            border-color: #f58220;
+            box-shadow: 0 0 0 3px rgba(245, 130, 32, 0.1);
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 0.9rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+        }
+        
+        .filter-select {
+            padding: 0.75rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            background: white;
+            cursor: pointer;
+            font-family: inherit;
+            min-width: 150px;
+        }
+        
+        .filter-select:focus {
+            outline: none;
+            border-color: #f58220;
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: none;
+            font-family: inherit;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #f58220 0%, #e67310 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 130, 32, 0.4);
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: #1a1a2e;
+            border: 2px solid #e5e7eb;
+        }
+        
+        .btn-secondary:hover {
+            border-color: #f58220;
+            color: #f58220;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
+        }
+        
+        /* Charts */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid rgba(0,0,0,0.05);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        
+        .chart-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1a1a2e;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+        
+        /* Modal Styling */
+        .modal-content, .video-container, .report-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .modal-header, .video-header, .report-header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            padding: 1.25rem 1.5rem;
+            border-radius: 16px 16px 0 0;
+        }
+        
+        .modal-header h2, .video-header h3, .report-header h3 {
+            margin: 0;
+            font-weight: 600;
+        }
+        
+        /* Sticky Stats Bar */
+        .sticky-stats {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 1rem 2rem;
+            margin: -2rem -2rem 1.5rem -2rem;
+            border-radius: 0;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        
+        .sticky-stats .stats-grid {
+            margin-bottom: 0;
+        }
+        
+        .sticky-stats .stat-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .sticky-stats .stat-card:hover {
+            background: rgba(255,255,255,0.15);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+        }
+        
+        .sticky-stats .stat-content h3 {
+            color: white;
+        }
+        
+        .sticky-stats .stat-content p {
+            color: rgba(255,255,255,0.7);
+        }
+        
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            background: white;
+            padding: 0.5rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .nav-tab {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            color: #64748b;
+        }
+        
+        .nav-tab:hover {
+            background: #f1f5f9;
+            color: #1a1a2e;
+        }
+        
+        .nav-tab.active {
+            background: linear-gradient(135deg, #f58220 0%, #e67310 100%);
+            color: white;
+        }
+        
+        /* Score Comparison Card */
+        .score-comparison {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+        }
+        
+        .score-box {
+            text-align: center;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            min-width: 120px;
+        }
+        
+        .score-box.human {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            border: 2px solid #3b82f6;
+        }
+        
+        .score-box.ai {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 2px solid #f59e0b;
+        }
+        
+        .score-box .label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.25rem;
+        }
+        
+        .score-box.human .label { color: #1d4ed8; }
+        .score-box.ai .label { color: #b45309; }
+        
+        .score-box .value {
+            font-size: 2rem;
+            font-weight: 800;
+        }
+        
+        .score-box.human .value { color: #2563eb; }
+        .score-box.ai .value { color: #d97706; }
+        
+        .score-vs {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #94a3b8;
+        }
+        
+        /* Enhanced Action Buttons */
+        .action-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+        }
+        
+        .action-btn {
+            padding: 0.35rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        .action-btn.human {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+        
+        .action-btn.human:hover {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .action-btn.ai {
+            background: #f3e8ff;
+            color: #7c3aed;
+        }
+        
+        .action-btn.ai:hover {
+            background: #8b5cf6;
+            color: white;
+        }
+        
+        .action-btn.retry {
+            background: #fef3c7;
+            color: #b45309;
+        }
+        
+        .action-btn.retry:hover {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        /* Link Button */
+        .link-btn {
+            padding: 0.35rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid #e5e7eb;
+            background: white;
+            color: #64748b;
+        }
+        
+        .link-btn:hover:not(:disabled) {
+            border-color: #f58220;
+            color: #f58220;
+        }
+        
+        .link-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        
+        /* Audit Feedback Page Styles */
+        .audit-page {
+            display: none;
+        }
+        
+        .audit-page.active {
+            display: block;
+        }
+        
+        .audit-summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .audit-summary-card {
+            padding: 1.25rem;
+            border-radius: 12px;
+            text-align: center;
+        }
+        
+        .audit-summary-card.total {
+            background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+            border: 1px solid #a78bfa;
+        }
+        
+        .audit-summary-card.accurate {
+            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+            border: 1px solid #4ade80;
+        }
+        
+        .audit-summary-card.variance {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 1px solid #fbbf24;
+        }
+        
+        .audit-summary-card.pending {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            border: 1px solid #94a3b8;
+        }
+        
+        .audit-summary-card .num {
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+        
+        .audit-summary-card .label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-top: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Audit View Toggle */
+        .audit-view-toggle {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            background: #f1f5f9;
+            padding: 0.35rem;
+            border-radius: 10px;
+            width: fit-content;
+        }
+        
+        .view-toggle-btn {
+            padding: 0.6rem 1.25rem;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            color: #64748b;
+        }
+        
+        .view-toggle-btn:hover {
+            background: rgba(255,255,255,0.5);
+            color: #1a1a2e;
+        }
+        
+        .view-toggle-btn.active {
+            background: white;
+            color: #1a1a2e;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        /* Audit Cards View */
+        .audit-cards-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.25rem;
+        }
+        
+        .audit-card {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+        
+        .audit-card:hover {
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        
+        .audit-card-header {
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .audit-card-header .tutor-id {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+        
+        .audit-card-header .audit-status {
+            padding: 0.25rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        
+        .audit-card-header .audit-status.approved {
+            background: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+        }
+        
+        .audit-card-header .audit-status.rejected {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+        
+        .audit-card-body {
+            padding: 1.25rem;
+        }
+        
+        .audit-card-scores {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        .audit-card-scores .score-item {
+            padding: 0.75rem;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        
+        .audit-card-scores .score-item .score-value {
+            font-size: 1.5rem;
+            font-weight: 800;
+        }
+        
+        .audit-card-scores .score-item .score-label {
+            font-size: 0.7rem;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-top: 0.25rem;
+        }
+        
+        .audit-card-feedback {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 1rem;
+            font-size: 0.9rem;
+            color: #374151;
+            line-height: 1.5;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        
+        .audit-card-footer {
+            padding: 0.75rem 1.25rem;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+        
+        /* Audit Responses Feed View */
+        .audit-responses-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        
+        .response-card {
+            background: white;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+        
+        .response-header {
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .response-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .response-meta .tutor-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .response-meta .tutor-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #f58220 0%, #e67310 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        
+        .response-meta .tutor-details h4 {
+            margin: 0;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #1a1a2e;
+        }
+        
+        .response-meta .tutor-details .session-id {
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+        
+        .response-meta .review-info {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+        
+        .response-scores {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+        
+        .response-scores .score-box {
+            text-align: center;
+            padding: 0.75rem 1rem;
+            border-radius: 10px;
+            min-width: 70px;
+        }
+        
+        .response-scores .score-box.human {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        }
+        
+        .response-scores .score-box.ai {
+            background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+        }
+        
+        .response-scores .score-box.variance {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        }
+        
+        .response-scores .score-box .value {
+            font-size: 1.5rem;
+            font-weight: 800;
+        }
+        
+        .response-scores .score-box .label {
+            font-size: 0.7rem;
+            color: #64748b;
+            text-transform: uppercase;
+        }
+        
+        .response-body {
+            padding: 1.5rem;
+        }
+        
+        .response-section {
+            margin-bottom: 1.25rem;
+        }
+        
+        .response-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .response-section h5 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #64748b;
+            margin: 0 0 0.75rem 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .response-section .content {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #374151;
+            white-space: pre-wrap;
+        }
+        
+        .response-section .content.positive {
+            background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+            border-left: 4px solid #10b981;
+        }
+        
+        .response-section .content.improvement {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .response-section .content.comparison {
+            background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+            border-left: 4px solid #8b5cf6;
+        }
+        
+        .response-footer {
+            padding: 1rem 1.5rem;
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .response-footer .accuracy-display {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .response-footer .accuracy-display .stars {
+            font-size: 1.1rem;
+        }
+        
+        .response-footer .accuracy-display .accuracy-label {
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+        
+        .response-footer .status-badge {
+            font-size: 0.8rem;
+        }
+        
+        /* Enhanced Form Inputs */
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .form-group input[type="text"],
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #f58220;
+            box-shadow: 0 0 0 3px rgba(245, 130, 32, 0.1);
+        }
+        
+        /* Rating Stars */
+        .rating-group {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        
+        .rating-star {
+            width: 32px;
+            height: 32px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .rating-star:hover {
+            border-color: #f59e0b;
+            background: #fef3c7;
+        }
+        
+        .rating-star.active {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            border-color: #d97706;
+            color: white;
+        }
+        
+        /* ========== RESPONSIVE DESIGN ========== */
+        
+        /* Tablet Landscape and Below (1024px) */
+        @media (max-width: 1024px) {
+            .container {
+                max-width: 100%;
+                padding: 1.5rem;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .audit-cards-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .queue-info-banner .queue-stats {
+                gap: 1rem;
+            }
+        }
+        
+        /* Tablet Portrait and Below (768px) */
+        @media (max-width: 768px) {
+            body {
+                font-size: 14px;
+            }
+            
+            .header {
+                padding: 1rem 1.5rem;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .header p {
+                font-size: 0.85rem;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+            
+            .card {
+                padding: 1rem;
+                border-radius: 12px;
+            }
+            
+            /* Stats Grid - 2 columns on tablet */
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.75rem;
+            }
+            
+            .stat-card {
+                padding: 1rem;
+            }
+            
+            .stat-icon {
+                width: 48px;
+                height: 48px;
+            }
+            
+            .stat-content h3 {
+                font-size: 1.5rem;
+            }
+            
+            .stat-content p {
+                font-size: 0.8rem;
+            }
+            
+            /* Sticky Stats */
+            .sticky-stats {
+                position: relative;
+                margin: 0 0 1.5rem 0;
+                padding: 1rem;
+                border-radius: 12px;
+            }
+            
+            .sticky-stats .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            /* Navigation Tabs */
+            .nav-tabs {
+                gap: 0.25rem;
+                padding: 0.35rem;
+                overflow-x: auto;
+            }
+            
+            .nav-tab {
+                padding: 0.6rem 1rem;
+                font-size: 0.85rem;
+                white-space: nowrap;
+            }
+            
+            /* Search and Filters */
+            .search-filter-bar {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            
+            .filter-select,
+            #searchInput {
+                width: 100%;
+            }
+            
+            /* Section Headers */
+            .section-header h2 {
+                font-size: 1.1rem;
+            }
+            
+            .section-header p {
+                font-size: 0.85rem;
+            }
+            
+            /* Tables - Make Scrollable */
+            .table-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .sessions-table {
+                min-width: 900px;
+                font-size: 0.85rem;
+            }
+            
+            .sessions-table th,
+            .sessions-table td {
+                padding: 0.75rem 0.5rem;
+            }
+            
+            /* Action Buttons - Smaller */
+            .action-btn {
+                padding: 0.35rem 0.5rem;
+                font-size: 0.65rem;
+            }
+            
+            .action-btn .btn-icon {
+                font-size: 0.75rem;
+            }
+            
+            /* Charts */
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-card {
+                padding: 1rem;
+            }
+            
+            /* Modals */
+            .modal-content {
+                width: 95%;
+                max-width: 95vw;
+                margin: 1rem;
+            }
+            
+            .video-modal .video-container,
+            .report-modal .report-container {
+                width: 95%;
+                max-width: 95vw;
+                height: 80vh;
+                margin: 1rem;
+            }
+            
+            /* Form Rows */
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+            
+            /* Audit Cards */
+            .audit-cards-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .audit-summary-cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            /* Queue Info Banner */
+            .queue-info-banner {
+                flex-direction: column;
+                padding: 1rem;
+                gap: 0.75rem;
+            }
+            
+            .queue-info-banner .queue-stats {
+                margin-left: 0;
+                width: 100%;
+                justify-content: space-around;
+            }
+            
+            /* Audit View Toggle */
+            .audit-view-toggle {
+                width: 100%;
+                overflow-x: auto;
+            }
+            
+            .view-toggle-btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.8rem;
+            }
+            
+            /* Response Cards */
+            .response-header {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .response-scores {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .response-scores .score-box {
+                min-width: auto;
+                flex: 1;
+            }
+        }
+        
+        /* Mobile Landscape and Below (640px) */
+        @media (max-width: 640px) {
+            .header {
+                padding: 0.75rem 1rem;
+            }
+            
+            .header h1 {
+                font-size: 1.25rem;
+            }
+            
+            .container {
+                padding: 0.75rem;
+            }
+            
+            .card {
+                padding: 0.75rem;
+                margin-bottom: 1rem;
+            }
+            
+            /* Stats Grid - Single column on mobile */
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+            
+            .sticky-stats .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .stat-card {
+                padding: 0.75rem;
+            }
+            
+            /* Upload Zone */
+            .upload-zone {
+                padding: 1.5rem;
+            }
+            
+            .upload-zone h3 {
+                font-size: 1rem;
+            }
+            
+            .upload-zone p {
+                font-size: 0.8rem;
+            }
+            
+            /* Navigation Tabs */
+            .nav-tab {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.8rem;
+            }
+            
+            /* Tables */
+            .sessions-table {
+                min-width: 800px;
+            }
+            
+            /* Action Buttons - Stack Vertically */
+            .action-row {
+                gap: 0.25rem;
+            }
+            
+            .action-btn {
+                padding: 0.3rem 0.4rem;
+                font-size: 0.6rem;
+            }
+            
+            /* Status Badges */
+            .status-badge {
+                font-size: 0.65rem;
+                padding: 0.25rem 0.5rem;
+            }
+            
+            /* Buttons */
+            .btn {
+                padding: 0.6rem 1rem;
+                font-size: 0.85rem;
+            }
+            
+            /* Progress Section */
+            .progress-item {
+                padding: 0.75rem;
+            }
+            
+            /* Audit Summary Cards */
+            .audit-summary-cards {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+            
+            .audit-summary-card {
+                padding: 1rem;
+            }
+            
+            .audit-summary-card .num {
+                font-size: 1.75rem;
+            }
+            
+            /* Audit View Toggle */
+            .view-toggle-btn {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.75rem;
+            }
+            
+            /* Queue Status */
+            .queue-position {
+                font-size: 0.65rem;
+            }
+            
+            .queue-waiting-badge {
+                font-size: 0.65rem;
+            }
+            
+            /* Modal Adjustments */
+            .modal-content,
+            .video-modal .video-container,
+            .report-modal .report-container {
+                width: 100%;
+                height: 100vh;
+                margin: 0;
+                border-radius: 0;
+            }
+            
+            .modal-header,
+            .video-header,
+            .report-header {
+                padding: 1rem;
+            }
+            
+            .modal-body {
+                padding: 1rem;
+            }
+            
+            .modal-footer {
+                padding: 1rem;
+            }
+            
+            /* Score Comparison */
+            .score-comparison-card {
+                grid-template-columns: 1fr;
+            }
+            
+            /* Response Cards */
+            .response-card {
+                border-radius: 12px;
+            }
+            
+            .response-header {
+                padding: 1rem;
+            }
+            
+            .response-meta .tutor-avatar {
+                width: 40px;
+                height: 40px;
+                font-size: 0.95rem;
+            }
+            
+            .response-meta .tutor-details h4 {
+                font-size: 1rem;
+            }
+            
+            .response-scores {
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            
+            .response-scores .score-box {
+                min-width: 60px;
+                padding: 0.5rem 0.75rem;
+            }
+            
+            .response-scores .score-box .value {
+                font-size: 1.25rem;
+            }
+            
+            .response-body {
+                padding: 1rem;
+            }
+            
+            .response-section .content {
+                padding: 0.75rem 1rem;
+                font-size: 0.9rem;
+            }
+            
+            .response-footer {
+                padding: 0.75rem 1rem;
+                flex-direction: column;
+                gap: 0.75rem;
+                align-items: flex-start;
+            }
+            
+            /* Audit Cards */
+            .audit-card-header {
+                padding: 0.75rem 1rem;
+            }
+            
+            .audit-card-body {
+                padding: 1rem;
+            }
+            
+            .audit-card-scores {
+                gap: 0.5rem;
+            }
+            
+            .audit-card-footer {
+                padding: 0.5rem 1rem;
+                font-size: 0.75rem;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+        }
+        
+        /* Small Mobile and Below (480px) */
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.1rem;
+            }
+            
+            .header p {
+                font-size: 0.75rem;
+            }
+            
+            .sticky-stats .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .nav-tabs {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start !important;
+            }
+            
+            /* Simplify Action Buttons on Very Small Screens */
+            .action-buttons {
+                gap: 0.35rem;
+            }
+            
+            .action-row {
+                flex-wrap: wrap;
+                gap: 0.2rem;
+            }
+            
+            .action-btn {
+                padding: 0.25rem 0.35rem;
+                font-size: 0.55rem;
+            }
+            
+            /* Queue Info Banner */
+            .queue-info-banner .queue-icon {
+                font-size: 1.5rem;
+            }
+            
+            .queue-info-banner .queue-details h4 {
+                font-size: 0.9rem;
+            }
+            
+            .queue-info-banner .queue-details p {
+                font-size: 0.75rem;
+            }
+            
+            .queue-info-banner .queue-stat .num {
+                font-size: 1.25rem;
+            }
+            
+            .queue-info-banner .queue-stat .label {
+                font-size: 0.65rem;
+            }
+            
+            /* Batch Actions */
+            .batch-actions-bar {
+                flex-direction: column;
+                gap: 0.5rem;
+                padding: 0.75rem;
+            }
+            
+            .batch-actions-bar button {
+                width: 100%;
+            }
+        }
+        
+        /* Print Styles */
+        @media print {
+            body {
+                background: white;
+            }
+            
+            .header,
+            .nav-tabs,
+            .upload-zone,
+            .action-buttons,
+            .btn,
+            .sticky-stats {
+                display: none !important;
+            }
+            
+            .container {
+                max-width: 100%;
+                padding: 0;
+            }
+            
+            .card {
+                box-shadow: none;
+                border: 1px solid #ddd;
+                page-break-inside: avoid;
+            }
+            
+            .sessions-table {
+                font-size: 10pt;
+            }
+            
+            .status-badge {
+                border: 1px solid #ddd;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo-section">
+                <img src="assets/ischool-logo.png" alt="iSchool Logo" class="logo">
+                <div class="header-text">
+                    <h1>AI Quality System</h1>
+                    <p>Session Analysis & Audit Dashboard</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="window.location.href='bi-dashboard.html'">
+                    📊 BI Dashboard
+                </button>
+                <button class="btn btn-primary" id="exportBtn">
+                    📥 Export Data
+                </button>
+                <button class="btn btn-danger" id="resetBtn" title="Clear dashboard sessions/uploads">
+                    ♻ Reset
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Upload Section -->
+        <section class="upload-section card">
+            <div class="section-header">
+                <h2>Upload Session Data</h2>
+                <p>Upload CSV file with session information</p>
+            </div>
+            <div class="upload-zone" id="uploadZone">
+                <svg class="upload-icon" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <h3>Drag & Drop CSV File</h3>
+                <p>or click to browse</p>
+                <input type="file" id="csvFileInput" accept=".csv" hidden>
+                <div class="file-info" id="fileInfo"></div>
+            </div>
+        </section>
+
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs" id="mainNavTabs">
+            <button class="nav-tab active" onclick="switchTab('sessions')">📋 Sessions</button>
+            <button class="nav-tab" onclick="switchTab('audit')">✅ Audit Hub</button>
+            <button class="nav-tab" onclick="switchTab('analytics')">📊 Analytics</button>
+        </div>
+
+        <!-- Sticky Stats Bar -->
+        <section class="sticky-stats" id="stickyStats">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: rgba(59, 130, 246, 0.3);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="totalSessions">0</h3>
+                        <p>Total Sessions</p>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: rgba(46, 204, 113, 0.3);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="completedSessions">0</h3>
+                        <p>Analysis Done</p>
+                    </div>
+                </div>
+
+                <!-- Queue Status Card -->
+                <div class="stat-card queue-status-card" id="queueStatusCard">
+                    <div class="stat-icon" style="background: rgba(251, 191, 36, 0.3);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="queueStatusDisplay">
+                            <span id="queueProcessing">0</span>/<span id="queueMax">3</span>
+                        </h3>
+                        <p>Processing <span id="queueWaiting" class="queue-waiting-badge">0 waiting</span></p>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: rgba(245, 130, 32, 0.3);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="auditedSessions">0</h3>
+                        <p>Audited</p>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: rgba(147, 51, 234, 0.3);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <path d="M9 19v-6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2zm0 0V9a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v10m-6 0a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2m0 0V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"></path>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="avgScoreDisplay">—</h3>
+                        <p>Avg AI Score</p>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: rgba(236, 72, 153, 0.3);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="reportsGenerated">0</h3>
+                        <p>Reports</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="charts-section" id="chartsSection" style="display: none;">
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <h3 class="chart-title">Session Status Distribution</h3>
+                    <canvas id="statusChart" class="chart-canvas"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3 class="chart-title">Tutor Performance</h3>
+                    <canvas id="tutorChart" class="chart-canvas"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Progress Section -->
+        <section class="progress-section card" id="progressSection" style="display: none;">
+            <div class="section-header">
+                <h2>⚙️ Processing Queue</h2>
+                <p>Real-time download and analysis status</p>
+            </div>
+            
+            <!-- Queue Info Banner -->
+            <div class="queue-info-banner" id="queueInfoBanner" style="display: none;">
+                <div class="queue-icon">⏳</div>
+                <div class="queue-details">
+                    <h4 id="queueBannerTitle">Analysis Queue Active</h4>
+                    <p id="queueBannerDesc">Sessions are being processed in batches of up to 3 at a time</p>
+                </div>
+                <div class="queue-stats">
+                    <div class="queue-stat">
+                        <div class="num" id="queueBannerProcessing">0</div>
+                        <div class="label">Processing</div>
+                    </div>
+                    <div class="queue-stat">
+                        <div class="num" id="queueBannerWaiting">0</div>
+                        <div class="label">Waiting</div>
+                    </div>
+                    <div class="queue-stat">
+                        <div class="num" id="queueBannerCompleted">0</div>
+                        <div class="label">Done</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="progressList" class="progress-list"></div>
+        </section>
+
+        <!-- Sessions Table -->
+        <section class="sessions-section card">
+            <div class="section-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
+                <div>
+                    <h2>📋 Session Management</h2>
+                    <p>View reports, audit sessions, and compare Human vs AI analysis</p>
+                </div>
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                    <div style="background:#dbeafe; padding:0.5rem 1rem; border-radius:8px; display:flex; align-items:center; gap:0.5rem;">
+                        <span style="font-size:1.25rem;">👤</span>
+                        <div>
+                            <div style="font-size:0.7rem; color:#1d4ed8; font-weight:600;">HUMAN</div>
+                            <div style="font-size:0.75rem; color:#3b82f6;">From CSV</div>
+                        </div>
+                    </div>
+                    <div style="background:#f3e8ff; padding:0.5rem 1rem; border-radius:8px; display:flex; align-items:center; gap:0.5rem;">
+                        <span style="font-size:1.25rem;">🤖</span>
+                        <div>
+                            <div style="font-size:0.7rem; color:#7c3aed; font-weight:600;">AI</div>
+                            <div style="font-size:0.75rem; color:#8b5cf6;">Generated</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search & Filter Bar -->
+            <div class="search-filter-bar">
+                <div class="search-box">
+                    <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <input type="text" id="searchInput" placeholder="Search by tutor, session, instructor...">
+                </div>
+                <select id="statusFilter" class="filter-select">
+                    <option value="all">📊 All Status</option>
+                    <option value="pending">⏳ Pending</option>
+                    <option value="downloading">⬇️ Downloading</option>
+                    <option value="completed">✅ Completed</option>
+                    <option value="failed">❌ Failed</option>
+                </select>
+                <select id="auditFilter" class="filter-select">
+                    <option value="all">🔍 All Audits</option>
+                    <option value="audited">✓ Audited</option>
+                    <option value="not-audited">○ Not Audited</option>
+                </select>
+                <select id="scoreFilter" class="filter-select">
+                    <option value="all">📈 All Scores</option>
+                    <option value="high">🟢 High (≥85)</option>
+                    <option value="medium">🟡 Medium (70-84)</option>
+                    <option value="low">🔴 Low (<70)</option>
+                    <option value="variance">⚠️ High Variance</option>
+                </select>
+            </div>
+
+            <!-- Batch Actions -->
+            <div class="batch-actions hidden" id="batchActions">
+                <span class="batch-info"><span id="selectedCount">0</span> sessions selected</span>
+                <button class="btn btn-primary" id="batchApprove">✓ Approve Selected</button>
+                <button class="btn btn-secondary" id="batchReject">✗ Reject Selected</button>
+                <button class="btn btn-danger" id="batchDelete">🗑 Delete Selected</button>
+            </div>
+
+            <div class="table-container">
+                <table class="sessions-table">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAll"></th>
+                            <th>Tutor ID</th>
+                            <th>Instructor</th>
+                            <th>Session ID</th>
+                            <th>Date</th>
+                            <th>Slot</th>
+                            <th style="background:linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);">👤 Human</th>
+                            <th style="background:linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%);">🤖 AI</th>
+                            <th>Status</th>
+                            <th>Analysis</th>
+                            <th>Progress</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sessionsTableBody">
+                        <tr class="empty-state">
+                            <td colspan="12">
+                                <div class="empty-message">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                    </svg>
+                                    <p>No sessions uploaded yet</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <!-- Enhanced Audit Modal -->
+    <div class="modal" id="auditModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>🔍 Session Audit & Review</h2>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Session Info -->
+                <div class="audit-info" style="background:#f8fafc; padding:1rem; border-radius:12px; margin-bottom:1.5rem;">
+                    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:1rem;">
+                        <div>
+                            <span style="font-size:0.75rem; color:#64748b; text-transform:uppercase;">Tutor ID</span>
+                            <div style="font-weight:700; color:#1a1a2e;" id="auditTutorId"></div>
+                        </div>
+                        <div>
+                            <span style="font-size:0.75rem; color:#64748b; text-transform:uppercase;">Session ID</span>
+                            <div style="font-weight:700; color:#1a1a2e;" id="auditSessionId"></div>
+                        </div>
+                        <div>
+                            <span style="font-size:0.75rem; color:#64748b; text-transform:uppercase;">Time Slot</span>
+                            <div style="font-weight:700; color:#1a1a2e;" id="auditTimeSlot"></div>
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" id="auditSessionIdVal">
+
+                <!-- Score Comparison -->
+                <div class="score-comparison">
+                    <div class="score-box human">
+                        <div class="label">👤 Human Score</div>
+                        <div class="value" id="auditHumanScore">—</div>
+                    </div>
+                    <div class="score-vs">VS</div>
+                    <div class="score-box ai">
+                        <div class="label">🤖 AI Score</div>
+                        <div class="value" id="auditAIScore">—</div>
+                    </div>
+                </div>
+
+                <!-- Reviewer Info -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="reviewerName">👤 Reviewer Name</label>
+                        <input type="text" id="reviewerName" placeholder="Enter your name">
+                    </div>
+                    <div class="form-group">
+                        <label>⭐ AI Accuracy Rating (1-5)</label>
+                        <div class="rating-group" id="accuracyRating">
+                            <button type="button" class="rating-star" data-value="1">1</button>
+                            <button type="button" class="rating-star" data-value="2">2</button>
+                            <button type="button" class="rating-star" data-value="3">3</button>
+                            <button type="button" class="rating-star" data-value="4">4</button>
+                            <button type="button" class="rating-star" data-value="5">5</button>
+                            <span style="margin-left:0.5rem; color:#64748b; font-size:0.85rem;" id="accuracyLabel">Not rated</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comparison Feedback -->
+                <div class="form-group">
+                    <label for="comparisonFeedback">📝 Comparison Notes (Human vs AI)</label>
+                    <textarea id="comparisonFeedback" rows="3" placeholder="What differences did you notice between the human and AI reports? Any missed observations or false positives?"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="auditComments">💬 General Audit Comments</label>
+                    <textarea id="auditComments" rows="3" placeholder="Any additional comments about the session quality..."></textarea>
+                </div>
+
+                <div class="form-group" style="margin-top:1rem;">
+                    <label style="display:flex; align-items:center; gap:0.75rem; cursor:pointer; padding:1rem; background:#f0fdf4; border:2px solid #bbf7d0; border-radius:10px;">
+                        <input type="checkbox" id="auditApproved" style="width:20px; height:20px; accent-color:#22c55e;">
+                        <span style="font-weight:600; color:#166534;">✓ Approve this session (AI analysis is accurate)</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
+                <button class="btn btn-secondary" id="cancelAudit">Cancel</button>
+                <div style="display:flex; gap:0.5rem;">
+                    <button class="btn" style="background:#ef4444; color:white;" id="rejectAudit">❌ Reject</button>
+                    <button class="btn btn-primary" id="saveAudit">💾 Save Audit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Human Report Modal -->
+    <div class="modal" id="humanReportModal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3>👤 Human Analysis Report</h3>
+                <button class="close-modal" onclick="closeHumanModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="human-score-box" style="background:#f0f9ff; padding:20px; border-radius:12px; margin-bottom:20px; text-align:center; border:1px solid #bae6fd;">
+                    <div style="font-size:0.9rem; font-weight:600; color:#0369a1; text-transform:uppercase; letter-spacing:0.5px;">Human Quality Score</div>
+                    <div id="humanScoreDisplay" style="font-size:3rem; font-weight:800; color:#0284c7; line-height:1;">--</div>
+                </div>
+                
+                <div class="form-group">
+                    <label style="color:#166534; font-weight:700;">✅ Positive Highlights</label>
+                    <div id="humanPositive" style="white-space: pre-wrap; background:#f0fdf4; padding:15px; border-radius:8px; border:1px solid #bbf7d0; min-height:80px; font-size:0.95rem;"></div>
+                </div>
+
+                <div class="form-group" style="margin-top:1.5rem;">
+                    <label style="color:#991b1b; font-weight:700;">⚠️ Areas for Improvement</label>
+                    <div id="humanImprovement" style="white-space: pre-wrap; background:#fff1f2; padding:15px; border-radius:8px; border:1px solid #fecaca; min-height:80px; font-size:0.95rem;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="closeHumanModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audit Hub Page -->
+    <div id="auditHubPage" class="audit-page container" style="padding-top:0;">
+        <div class="card">
+            <div class="section-header" style="margin-bottom:1.5rem;">
+                <h2>✅ Audit Hub - Review Feedback</h2>
+                <p>Track and analyze comparisons between AI analysis and human review</p>
+            </div>
+
+            <!-- Audit Summary Cards -->
+            <div class="audit-summary-cards">
+                <div class="audit-summary-card total">
+                    <div class="num" id="auditTotalCount">0</div>
+                    <div class="label" style="color:#7c3aed;">Total Audited</div>
+                </div>
+                <div class="audit-summary-card accurate">
+                    <div class="num" id="auditAccurateCount">0</div>
+                    <div class="label" style="color:#16a34a;">AI Accurate</div>
+                </div>
+                <div class="audit-summary-card variance">
+                    <div class="num" id="auditVarianceCount">0</div>
+                    <div class="label" style="color:#b45309;">High Variance</div>
+                </div>
+                <div class="audit-summary-card pending">
+                    <div class="num" id="auditPendingCount">0</div>
+                    <div class="label" style="color:#64748b;">Pending Review</div>
+                </div>
+            </div>
+
+            <!-- View Toggle -->
+            <div class="audit-view-toggle">
+                <button class="view-toggle-btn active" onclick="setAuditView('table')" id="auditTableViewBtn">
+                    📋 Table View
+                </button>
+                <button class="view-toggle-btn" onclick="setAuditView('cards')" id="auditCardsViewBtn">
+                    🗂️ Cards View
+                </button>
+                <button class="view-toggle-btn" onclick="setAuditView('responses')" id="auditResponsesViewBtn">
+                    💬 Responses Feed
+                </button>
+            </div>
+
+            <!-- Audit Filter -->
+            <div style="display:flex; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap; align-items:center;">
+                <select id="auditHubFilter" class="filter-select" onchange="renderAuditHub()">
+                    <option value="all">All Audits</option>
+                    <option value="approved">✓ Approved</option>
+                    <option value="rejected">✗ Rejected</option>
+                    <option value="high-accuracy">⭐ High Accuracy (4-5)</option>
+                    <option value="low-accuracy">⚠️ Low Accuracy (1-2)</option>
+                    <option value="has-feedback">💬 With Feedback</option>
+                </select>
+                <input type="text" id="auditSearchInput" class="filter-select" placeholder="🔍 Search tutor/reviewer..." style="min-width:200px;" oninput="renderAuditHub()">
+                <button class="btn btn-secondary" onclick="exportAuditData()">
+                    📥 Export Audit Data
+                </button>
+            </div>
+
+            <!-- Table View -->
+            <div id="auditTableView" class="table-container">
+                <table class="sessions-table">
+                    <thead>
+                        <tr>
+                            <th>Session</th>
+                            <th>Reviewer</th>
+                            <th>Human Score</th>
+                            <th>AI Score</th>
+                            <th>Δ Variance</th>
+                            <th>Accuracy</th>
+                            <th>Comparison Feedback</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditHubTableBody"></tbody>
+                </table>
+            </div>
+
+            <!-- Cards View -->
+            <div id="auditCardsView" class="audit-cards-container" style="display:none;">
+            </div>
+
+            <!-- Responses Feed View -->
+            <div id="auditResponsesView" class="audit-responses-container" style="display:none;">
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics Page -->
+    <div id="analyticsPage" class="audit-page container" style="padding-top:0;">
+        <!-- Charts Section will be moved here -->
+    </div>
+
+    <!-- Video Player Modal -->
+    <div class="video-modal" id="videoModal">
+        <div class="video-container">
+            <div class="video-header">
+                <h3 class="video-title" id="videoTitle">Session Playback</h3>
+                <button class="video-close" id="closeVideo">&times;</button>
+            </div>
+            <video id="videoPlayer" class="video-player" controls>
+                <source id="videoSource" src="" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+    </div>
+
+    <!-- Report Modal -->
+    <div class="report-modal" id="reportModal">
+        <div class="report-container">
+            <div class="report-header">
+                <h3 class="report-title" id="reportTitle">Quality Report</h3>
+                <button class="report-close" id="closeReport">&times;</button>
+            </div>
+            <iframe id="reportFrame" class="report-frame" frameborder="0"></iframe>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/analytics.js"></script>
+</body>
+
+</html>

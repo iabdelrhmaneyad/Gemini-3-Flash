@@ -1,0 +1,168 @@
+[
+  {
+    "id": "rule_000",
+    "category": "Setup",
+    "subcategory": "Camera Quality",
+    "rule": "Camera must show tutor's face clearly with iSchool Virtual Background",
+    "severity": "High",
+    "keywords": [
+      "camera",
+      "background",
+      "virtual",
+      "setup"
+    ]
+  },
+  {
+    "id": "rule_001",
+    "category": "Setup",
+    "subcategory": "Camera Framing",
+    "rule": "Camera must be front-facing for proper eye contact (avoid side angles)",
+    "severity": "High",
+    "keywords": [
+      "camera",
+      "framing",
+      "angle",
+      "eye contact",
+      "front-facing"
+    ]
+  },
+  {
+    "id": "rule_002",
+    "category": "Setup",
+    "subcategory": "Audio Quality",
+    "rule": "Microphone must have clear audio without excessive lag or drops",
+    "severity": "High",
+    "keywords": [
+      "audio",
+      "microphone",
+      "quality",
+      "lag",
+      "drops"
+    ]
+  },
+  {
+    "id": "rule_003",
+    "category": "Attitude",
+    "subcategory": "Friendliness",
+    "rule": "Tutor should greet warmly and establish rapport with student",
+    "severity": "High",
+    "keywords": [
+      "greeting",
+      "warm",
+      "rapport",
+      "friendly",
+      "welcome"
+    ]
+  },
+  {
+    "id": "rule_004",
+    "category": "Attitude",
+    "subcategory": "Engagement",
+    "rule": "Tone should be energetic, welcoming, and encouraging",
+    "severity": "Medium",
+    "keywords": [
+      "tone",
+      "energy",
+      "encouraging",
+      "enthusiasm"
+    ]
+  },
+  {
+    "id": "rule_005",
+    "category": "Preparation",
+    "subcategory": "Session Planning",
+    "rule": "Session roadmap must be explained at the beginning",
+    "severity": "High",
+    "keywords": [
+      "roadmap",
+      "planning",
+      "session",
+      "structure",
+      "outline"
+    ]
+  },
+  {
+    "id": "rule_006",
+    "category": "Curriculum",
+    "subcategory": "Project Implementation",
+    "rule": "Student must implement project during session (not just observe)",
+    "severity": "High",
+    "keywords": [
+      "project",
+      "implementation",
+      "student",
+      "coding",
+      "hands-on"
+    ]
+  },
+  {
+    "id": "rule_007",
+    "category": "Curriculum",
+    "subcategory": "Knowledge Accuracy",
+    "rule": "Technical concepts must be explained accurately and precisely",
+    "severity": "High",
+    "keywords": [
+      "knowledge",
+      "accuracy",
+      "concepts",
+      "technical",
+      "correct"
+    ]
+  },
+  {
+    "id": "rule_008",
+    "category": "Teaching",
+    "subcategory": "Tools & Methodology",
+    "rule": "Tutor should use Zoom annotation tools (arrows, highlighters) instead of verbal directions",
+    "severity": "Medium",
+    "keywords": [
+      "tools",
+      "annotations",
+      "zoom",
+      "methodology",
+      "visual"
+    ]
+  },
+  {
+    "id": "rule_009",
+    "category": "Teaching",
+    "subcategory": "Student Engagement",
+    "rule": "Student should be engaged with questions to check understanding",
+    "severity": "High",
+    "keywords": [
+      "engagement",
+      "questions",
+      "understanding",
+      "check",
+      "interaction"
+    ]
+  },
+  {
+    "id": "rule_010",
+    "category": "Teaching",
+    "subcategory": "Class Management",
+    "rule": "No dead air or silence > 60 seconds while student is coding",
+    "severity": "Medium",
+    "keywords": [
+      "silence",
+      "dead air",
+      "management",
+      "pacing",
+      "flow"
+    ]
+  },
+  {
+    "id": "rule_011",
+    "category": "Feedback",
+    "subcategory": "Closing",
+    "rule": "Session should end with summary and homework assignment",
+    "severity": "Medium",
+    "keywords": [
+      "closing",
+      "summary",
+      "homework",
+      "assignment",
+      "review"
+    ]
+  }
+]

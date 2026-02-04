@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BI Dashboard - iSchool AI Quality System</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/bi-styles.css">
+    <link rel="stylesheet" href="css/polish.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        /* Professional BI Dashboard Overrides */
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-bottom: 3px solid #f58220;
+        }
+        
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid #f58220;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(180deg, #f58220 0%, #e67310 100%);
+            border-radius: 2px;
+        }
+        
+        .kpi-card {
+            background: white;
+            border-radius: 16px;
+            border: 1px solid rgba(0,0,0,0.05);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        
+        .kpi-content h3 {
+            font-size: 2.25rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .chart-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid rgba(0,0,0,0.05);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        
+        .chart-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1a1a2e;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .data-source-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.7rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-weight: 500;
+            margin-left: auto;
+        }
+        
+        .data-source-badge.real {
+            background: rgba(46, 204, 113, 0.15);
+            color: #27ae60;
+        }
+        
+        .data-source-badge.calculated {
+            background: rgba(52, 152, 219, 0.15);
+            color: #2980b9;
+        }
+        
+        .saptcf-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .saptcf-item {
+            text-align: center;
+            padding: 1rem;
+            background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
+            border-radius: 12px;
+            border: 1px solid #eee;
+        }
+        
+        .saptcf-item .letter {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #f58220;
+        }
+        
+        .saptcf-item .score {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin: 0.5rem 0;
+        }
+        
+        .saptcf-item .label {
+            font-size: 0.75rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .metric-explanation {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 0.5rem;
+            font-style: italic;
+        }
+        
+        .empty-state-bi {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+        
+        .empty-state-bi svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+        
+        .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .stat-mini {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-mini .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1a1a2e;
+        }
+        
+        .stat-mini .label {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #f58220;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .last-updated {
+            font-size: 0.75rem;
+            color: #888;
+            text-align: right;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <p>Loading Analytics...</p>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo-section">
+                <img src="assets/ischool-logo.png" alt="iSchool Logo" class="logo">
+                <div class="header-text">
+                    <h1>Business Intelligence Dashboard</h1>
+                    <p>SAPTCF Performance Analytics</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="window.location.href='index.html'">
+                    ← Back to Sessions
+                </button>
+                <button class="btn btn-primary" id="refreshDataBtn" onclick="initializeBIDashboard()">
+                    🔄 Refresh Data
+                </button>
+                <button class="btn btn-primary" id="exportReportBtn">
+                    📥 Export Report
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Filters Section -->
+        <section class="filters-section card">
+            <div class="filters-header">
+                <h2>📊 Filters & Date Range</h2>
+            </div>
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label>Date Range</label>
+                    <select id="dateRangeFilter" class="filter-select">
+                        <option value="all">All Time</option>
+                        <option value="today">Today</option>
+                        <option value="week">Last 7 Days</option>
+                        <option value="month" selected>Last 30 Days</option>
+                        <option value="quarter">Last 90 Days</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Tutor</label>
+                    <select id="tutorFilter" class="filter-select">
+                        <option value="all">All Tutors</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Performance Threshold</label>
+                    <select id="performanceFilter" class="filter-select">
+                        <option value="all">All Performance Levels</option>
+                        <option value="high">High (80-100)</option>
+                        <option value="medium">Medium (60-79)</option>
+                        <option value="low">Low (0-59)</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <button class="btn btn-primary" id="applyFiltersBtn">Apply Filters</button>
+                    <button class="btn btn-secondary" id="resetFiltersBtn">Reset</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Executive Summary -->
+        <section class="executive-summary">
+            <h2 class="section-title">Executive Summary</h2>
+            <p class="last-updated" id="lastUpdated">Last updated: --</p>
+            <div class="kpi-grid">
+                <div class="kpi-card card">
+                    <div class="kpi-icon" style="background: linear-gradient(135deg, #007bff 0%, #3395ff 100%);">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </div>
+                    <div class="kpi-content">
+                        <h3 id="totalTutors">0</h3>
+                        <p>Total Tutors Analyzed</p>
+                        <span class="data-source-badge calculated" id="tutorsBadge">📊 From Sessions</span>
+                    </div>
+                </div>
+
+                <div class="kpi-card card">
+                    <div class="kpi-icon" style="background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                    </div>
+                    <div class="kpi-content">
+                        <h3 id="avgPerformance">0</h3>
+                        <p>Weighted Quality Score</p>
+                        <span class="data-source-badge real" id="performanceBadge">✓ From Reports</span>
+                    </div>
+                </div>
+
+                <div class="kpi-card card">
+                    <div class="kpi-icon" style="background: linear-gradient(135deg, #9333EA 0%, #7C3AED 100%);">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                        </svg>
+                    </div>
+                    <div class="kpi-content">
+                        <h3 id="totalReports">0</h3>
+                        <p>Reports Generated</p>
+                        <span class="data-source-badge real" id="reportsBadge">✓ Actual Count</span>
+                    </div>
+                </div>
+
+                <div class="kpi-card card">
+                    <div class="kpi-icon" style="background: linear-gradient(135deg, #f58220 0%, #e67310 100%);">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <polygon
+                                points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2">
+                            </polygon>
+                        </svg>
+                    </div>
+                    <div class="kpi-content">
+                        <h3 id="qualityRating">0.0<span style="font-size: 1rem; opacity: 0.7;">/5</span></h3>
+                        <p>Overall Rating</p>
+                        <span class="data-source-badge real" id="qualityBadge">✓ Weighted Average</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SAPTCF Scores Section -->
+        <section class="saptcf-section card">
+            <h2 class="section-title">SAPTCF Quality Framework Scores</h2>
+            <p class="metric-explanation">Average scores across all analyzed sessions based on the SAPTCF quality framework (Setup, Attitude, Preparation, Teaching, Curriculum, Feedback)</p>
+            <div class="saptcf-grid" id="saptcfGrid">
+                <div class="saptcf-item">
+                    <div class="letter">S</div>
+                    <div class="score" id="scoreSetup">--</div>
+                    <div class="label">Setup</div>
+                </div>
+                <div class="saptcf-item">
+                    <div class="letter">A</div>
+                    <div class="score" id="scoreAttitude">--</div>
+                    <div class="label">Attitude</div>
+                </div>
+                <div class="saptcf-item">
+                    <div class="letter">P</div>
+                    <div class="score" id="scorePreparation">--</div>
+                    <div class="label">Preparation</div>
+                </div>
+                <div class="saptcf-item">
+                    <div class="letter">T</div>
+                    <div class="score" id="scoreTeaching">--</div>
+                    <div class="label">Teaching</div>
+                </div>
+                <div class="saptcf-item">
+                    <div class="letter">C</div>
+                    <div class="score" id="scoreCurriculum">--</div>
+                    <div class="label">Curriculum</div>
+                </div>
+                <div class="saptcf-item">
+                    <div class="letter">F</div>
+                    <div class="score" id="scoreFeedback">--</div>
+                    <div class="label">Feedback</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Performance Overview -->
+        <section class="performance-section">
+            <h2 class="section-title">Performance Overview</h2>
+            <div class="charts-row">
+                <div class="chart-card card">
+                    <h3 class="chart-title">Performance Distribution</h3>
+                    <canvas id="performanceDistChart" class="chart-canvas"></canvas>
+                </div>
+                <div class="chart-card card">
+                    <h3 class="chart-title">Performance Trend (30 Days)</h3>
+                    <canvas id="performanceTrendChart" class="chart-canvas"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quality Flags Analysis -->
+        <section class="flags-section">
+            <h2 class="section-title">Quality Flags Analysis</h2>
+            <div class="charts-row">
+                <div class="chart-card card">
+                    <h3 class="chart-title">Flag Distribution</h3>
+                    <canvas id="flagDistChart" class="chart-canvas"></canvas>
+                </div>
+                <div class="chart-card card">
+                    <h3 class="chart-title">Flags by Category</h3>
+                    <canvas id="flagCategoryChart" class="chart-canvas"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tutor Rankings -->
+        <section class="rankings-section card">
+            <h2 class="section-title">Tutor Rankings</h2>
+            <div class="rankings-grid">
+                <div class="ranking-column">
+                    <h3 class="ranking-title">🏆 Top Performers</h3>
+                    <div id="topPerformers" class="ranking-list"></div>
+                </div>
+                <div class="ranking-column">
+                    <h3 class="ranking-title">⚠️ Needs Improvement</h3>
+                    <div id="bottomPerformers" class="ranking-list"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Score Analysis -->
+        <section class="scores-section">
+            <h2 class="section-title">Score Analysis</h2>
+            <div class="charts-row">
+                <div class="chart-card card">
+                    <h3 class="chart-title">Score Distribution</h3>
+                    <canvas id="scoreDistChart" class="chart-canvas"></canvas>
+                </div>
+                <div class="chart-card card">
+                    <h3 class="chart-title">Score Breakdown by Dimension</h3>
+                    <canvas id="scoreDimensionsChart" class="chart-canvas"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tutor Comparison -->
+        <section class="comparison-section card">
+            <h2 class="section-title">Tutor Comparison Matrix</h2>
+            <div class="comparison-controls">
+                <select id="tutor1Select" class="filter-select">
+                    <option value="">Select Tutor 1</option>
+                </select>
+                <span class="vs-text">VS</span>
+                <select id="tutor2Select" class="filter-select">
+                    <option value="">Select Tutor 2</option>
+                </select>
+                <button class="btn btn-primary" id="compareBtn">Compare</button>
+            </div>
+            <div class="comparison-result" id="comparisonResult">
+                <canvas id="comparisonRadarChart" class="chart-canvas"></canvas>
+            </div>
+        </section>
+
+        <!-- Time-Based Analysis -->
+        <section class="time-analysis-section">
+            <h2 class="section-title">Time-Based Analysis</h2>
+            <div class="charts-row">
+                <div class="chart-card card">
+                    <h3 class="chart-title">Performance by Time Slot</h3>
+                    <canvas id="timeSlotChart" class="chart-canvas"></canvas>
+                </div>
+                <div class="chart-card card">
+                    <h3 class="chart-title">Weekly Performance Heatmap</h3>
+                    <div id="heatmapContainer" class="heatmap-container"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="js/bi-analytics.js"></script>
+</body>
+
+</html>
