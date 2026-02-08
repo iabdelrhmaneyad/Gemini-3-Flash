@@ -3,6 +3,7 @@ const multer = require('multer');
 const csv = require('csv-parser');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -21,6 +22,50 @@ const io = socketIo(server, {
 });
 
 const PORT = 3000;
+
+// Ensure a persistent logs directory exists (useful for pm2 deployments)
+const LOGS_DIR = path.join(__dirname, 'logs');
+try {
+  fs.mkdirSync(LOGS_DIR, { recursive: true });
+} catch (e) {
+  // best-effort; server can still run without file logging
+}
+
+function appendAnalysisErrorLog(session, summary, details = '') {
+  try {
+    const tutorId = session?.tutorId || session?.tutor_id || 'unknown_tutor';
+    const sessionId = session?.sessionId || session?.id || 'unknown_session';
+    const ts = new Date().toISOString();
+    const entry = [
+      `\n[${ts}] tutorId=${tutorId} sessionId=${sessionId}`,
+      summary ? `Summary: ${summary}` : '',
+      details ? `Details: ${details}` : ''
+    ].filter(Boolean).join('\n') + '\n';
+    fs.appendFileSync(path.join(LOGS_DIR, 'analysis-errors.log'), entry, 'utf8');
+  } catch (e) {
+    // ignore file logging failures
+  }
+}
+
+function deleteExistingReports(sessionFolder, tutorId) {
+  const candidates = [
+    path.join(sessionFolder, `Quality_Report_RAG_${tutorId}.html`),
+    path.join(sessionFolder, `Quality_Report_RAG_${tutorId}.json`),
+    path.join(sessionFolder, `Quality_Report_RAG_${tutorId}.txt`),
+  ];
+  let deleted = 0;
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) {
+        fs.unlinkSync(p);
+        deleted++;
+      }
+    } catch (e) {
+      // best-effort
+    }
+  }
+  return deleted;
+}
 
 // Middleware
 app.use(cors());
@@ -51,17 +96,37 @@ const runningAnalyses = new Set();
 
 // ===== ANALYSIS QUEUE MANAGER =====
 // Configurable concurrency - 3 is safe, can adjust based on system resources
+function autoAnalysisMaxConcurrent() {
+  // Heuristic: keep memory stable on small hosts (python analysis can be heavy).
+  const totalGB = os.totalmem() / (1024 ** 3);
+  if (totalGB < 4) return 1;
+  if (totalGB < 8) return 1;
+  if (totalGB < 16) return 2;
+  return 3;
+}
+
 const ANALYSIS_CONFIG = {
-  maxConcurrent: 3,  // Max simultaneous analysis processes
-  timeoutMinutes: 15, // Timeout per analysis
-  maxRetries: 3       // Max retries on failure
+  maxConcurrent: Math.max(1, parseInt(process.env.ANALYSIS_MAX_CONCURRENT || String(autoAnalysisMaxConcurrent()), 10)),
+  timeoutMinutes: Math.max(5, parseInt(process.env.ANALYSIS_TIMEOUT_MINUTES || '15', 10)),
+  maxRetries: Math.max(0, parseInt(process.env.ANALYSIS_MAX_RETRIES || '3', 10))
 };
+
+console.log(`[CONFIG] Analysis maxConcurrent=${ANALYSIS_CONFIG.maxConcurrent} timeoutMinutes=${ANALYSIS_CONFIG.timeoutMinutes} maxRetries=${ANALYSIS_CONFIG.maxRetries}`);
+
+const QUOTA_BACKOFF_MINUTES = Math.max(5, parseInt(process.env.AUTO_RETRY_QUOTA_BACKOFF_MINUTES || '30', 10));
+function isQuotaExhaustedMessage(text) {
+  const s = String(text || '');
+  return /RESOURCE_EXHAUSTED|\b429\b|quota/i.test(s);
+}
 
 class AnalysisQueueManager {
   constructor() {
     this.queue = [];
     this.activeCount = 0;
     this.processing = new Map(); // sessionId -> analysis state
+    this.quotaPausedUntil = 0;
+    this.quotaPauseReason = '';
+    this._quotaResumeTimer = null;
     this.stats = {
       queued: 0,
       processing: 0,
@@ -110,6 +175,19 @@ class AnalysisQueueManager {
 
   // Process next item in queue
   async processNext() {
+    // If we recently hit provider quota/rate limits, pause starting new analyses.
+    if (this.quotaPausedUntil && Date.now() < this.quotaPausedUntil) {
+      if (!this._quotaResumeTimer) {
+        const ms = Math.max(250, this.quotaPausedUntil - Date.now());
+        console.log(`[QUEUE] Paused due to quota until ${new Date(this.quotaPausedUntil).toISOString()} (${Math.ceil(ms / 1000)}s)`);
+        this._quotaResumeTimer = setTimeout(() => {
+          this._quotaResumeTimer = null;
+          this.processNext();
+        }, ms);
+      }
+      return;
+    }
+
     if (this.activeCount >= ANALYSIS_CONFIG.maxConcurrent || this.queue.length === 0) {
       return;
     }
@@ -161,6 +239,9 @@ class AnalysisQueueManager {
         console.log(`[QUEUE] Session folder not found for ${session.tutorId}, skipping...`);
         session.analysisStatus = 'failed';
         session.failureReason = 'folder_not_found';
+        session.failureDetails = `Missing folder: ${sessionFolder}`;
+        session.lastFailureAt = new Date().toISOString();
+        appendAnalysisErrorLog(session, 'Session folder not found', session.failureDetails);
         io.emit('sessionUpdate', session);
         return;
       }
@@ -185,6 +266,9 @@ class AnalysisQueueManager {
         console.log(`[QUEUE] No video file found for ${session.tutorId}, skipping...`);
         session.analysisStatus = 'failed';
         session.failureReason = 'no_video';
+        session.failureDetails = 'No .mp4 file present in session folder';
+        session.lastFailureAt = new Date().toISOString();
+        appendAnalysisErrorLog(session, 'No video file found', session.failureDetails);
         io.emit('sessionUpdate', session);
         return;
       }
@@ -213,8 +297,26 @@ class AnalysisQueueManager {
       }
 
       await new Promise((resolve, reject) => {
-        const python = spawn('python3', args);
+        // Limit native thread usage in some libs (helps memory on small hosts)
+        const python = spawn('python3', args, {
+          env: {
+            ...process.env,
+            OMP_NUM_THREADS: process.env.OMP_NUM_THREADS || '1',
+            OPENBLAS_NUM_THREADS: process.env.OPENBLAS_NUM_THREADS || '1',
+            MKL_NUM_THREADS: process.env.MKL_NUM_THREADS || '1',
+            VECLIB_MAXIMUM_THREADS: process.env.VECLIB_MAXIMUM_THREADS || '1',
+            NUMEXPR_NUM_THREADS: process.env.NUMEXPR_NUM_THREADS || '1'
+          }
+        });
         runningAnalyses.add(python);
+
+        // Keep only the tail of stdout/stderr so we can show the failure reason without huge payloads
+        let stdoutTail = '';
+        let stderrTail = '';
+        const keepTail = (prev, chunk, maxLen = 8000) => {
+          const next = (prev + chunk);
+          return next.length > maxLen ? next.slice(next.length - maxLen) : next;
+        };
 
         // Safety Timeout
         const timeout = setTimeout(() => {
@@ -222,15 +324,20 @@ class AnalysisQueueManager {
           python.kill();
           session.analysisStatus = 'failed';
           session.failureReason = 'timeout';
+          session.failureDetails = `Timed out after ${ANALYSIS_CONFIG.timeoutMinutes} minutes`;
+          session.lastFailureAt = new Date().toISOString();
+          appendAnalysisErrorLog(session, 'Analysis timed out', session.failureDetails);
           io.emit('sessionUpdate', session);
         }, ANALYSIS_CONFIG.timeoutMinutes * 60 * 1000);
 
         python.stdout.on('data', (data) => {
           console.log(`[RAG ${session.tutorId}]: ${data}`);
+          stdoutTail = keepTail(stdoutTail, data.toString());
         });
 
         python.stderr.on('data', (data) => {
           console.error(`[RAG ERROR ${session.tutorId}]: ${data}`);
+          stderrTail = keepTail(stderrTail, data.toString());
         });
 
         python.on('close', (code) => {
@@ -250,6 +357,7 @@ class AnalysisQueueManager {
             if (needsRetry && (session.retryCount || 0) < ANALYSIS_CONFIG.maxRetries) {
               session.analysisStatus = 'queued';
               session.failureReason = 'json_parse_error';
+              session.failureDetails = 'Report generated but score was -1 (JSON parse error)';
               session.retryCount = (session.retryCount || 0) + 1;
               console.log(`[QUEUE] ${session.tutorId} needs retry (attempt ${session.retryCount})`);
               
@@ -296,13 +404,42 @@ class AnalysisQueueManager {
             }
           } else {
             session.analysisStatus = 'failed';
-            session.retryCount = (session.retryCount || 0) + 1;
+            const combinedOut = `${stderrTail}\n${stdoutTail}`;
+            const quotaExhausted = isQuotaExhaustedMessage(combinedOut);
+            session.failureReason = quotaExhausted ? 'quota_exhausted' : (session.failureReason || 'script_failed');
+            session.failureExitCode = code;
+            session.failureDetails = (stderrTail || stdoutTail || '').trim().slice(-8000);
+            session.lastFailureAt = new Date().toISOString();
+            appendAnalysisErrorLog(
+              session,
+              `Analysis script failed (exit code ${code})`,
+              session.failureDetails
+            );
+            // If quota is exhausted, do not burn retries rapidly; rely on timed auto-retry.
+            session.retryCount = quotaExhausted ? (session.retryCount || 0) : (session.retryCount || 0) + 1;
             
-            if (session.retryCount <= ANALYSIS_CONFIG.maxRetries) {
+            if (!quotaExhausted && session.retryCount <= ANALYSIS_CONFIG.maxRetries) {
               console.log(`[QUEUE] ✗ Failed ${session.tutorId}, will retry (attempt ${session.retryCount})...`);
+              session.analysisStatus = 'queued';
+              session.failureReason = 'script_failed_retrying';
+              session.lastRetryAt = new Date().toISOString();
               setTimeout(() => {
                 this.enqueue(session, io, { priority: -1 });
               }, Math.min(Math.pow(2, session.retryCount) * 1000, 60000));
+            } else if (quotaExhausted) {
+              session.nextAutoRetryAt = new Date(Date.now() + QUOTA_BACKOFF_MINUTES * 60 * 1000).toISOString();
+              // Pause queue globally so we don't churn through more sessions while quota is exhausted.
+              const pauseUntil = Date.now() + QUOTA_BACKOFF_MINUTES * 60 * 1000;
+              if (!this.quotaPausedUntil || pauseUntil > this.quotaPausedUntil) {
+                this.quotaPausedUntil = pauseUntil;
+                this.quotaPauseReason = 'quota_exhausted';
+                // Clear any existing resume timer so the next processNext() sets a new one.
+                if (this._quotaResumeTimer) {
+                  clearTimeout(this._quotaResumeTimer);
+                  this._quotaResumeTimer = null;
+                }
+              }
+              console.log(`[QUEUE] ✗ Failed ${session.tutorId} due to quota exhaustion; delaying retries for ${QUOTA_BACKOFF_MINUTES}m`);
             } else {
               console.log(`[QUEUE] ✗ Failed ${session.tutorId} after ${session.retryCount} attempts`);
             }
@@ -315,6 +452,11 @@ class AnalysisQueueManager {
 
         python.on('error', (err) => {
           runningAnalyses.delete(python);
+          session.analysisStatus = 'failed';
+          session.failureReason = 'spawn_error';
+          session.failureDetails = String(err?.message || err);
+          session.lastFailureAt = new Date().toISOString();
+          appendAnalysisErrorLog(session, 'Failed to spawn python process', session.failureDetails);
           reject(err);
         });
       });
@@ -322,6 +464,10 @@ class AnalysisQueueManager {
     } catch (error) {
       console.error(`[QUEUE] Error analyzing ${session.tutorId}:`, error.message);
       session.analysisStatus = 'failed';
+      session.failureReason = session.failureReason || 'server_error';
+      session.failureDetails = String(error?.message || error);
+      session.lastFailureAt = new Date().toISOString();
+      appendAnalysisErrorLog(session, 'Server-side error during analysis', session.failureDetails);
       io.emit('sessionUpdate', session);
       dataStore.saveData(sessionData);
     }
@@ -341,6 +487,9 @@ class AnalysisQueueManager {
       maxConcurrent: ANALYSIS_CONFIG.maxConcurrent,
       completed: this.stats.completed,
       failed: this.stats.failed,
+      paused: Boolean(this.quotaPausedUntil && Date.now() < this.quotaPausedUntil),
+      pausedUntil: this.quotaPausedUntil ? new Date(this.quotaPausedUntil).toISOString() : null,
+      pauseReason: this.quotaPauseReason || null,
       queuedSessions: this.queue.map(item => ({
         sessionId: item.session.sessionId,
         tutorId: item.session.tutorId,
@@ -440,6 +589,40 @@ if (recoveryCount > 0) {
     }, 1000);
   }
 }
+
+// ===== AUTO-QUEUE PENDING SESSIONS WITH VIDEOS =====
+// On startup, find "pending" sessions that already have a downloaded video but no report,
+// and queue them for analysis automatically.
+setTimeout(() => {
+  const pendingWithVideo = [];
+  for (const session of sessionData) {
+    const st = String(session.analysisStatus || 'pending').toLowerCase();
+    if (st !== 'pending') continue;
+
+    const sessionFolder = path.join(__dirname, '..', 'Sessions', session.tutorId);
+    if (!fs.existsSync(sessionFolder)) continue;
+
+    // Already has a report? Mark completed instead of re-queuing.
+    const reportPath = path.join(sessionFolder, `Quality_Report_RAG_${session.tutorId}.html`);
+    if (fs.existsSync(reportPath)) {
+      session.analysisStatus = 'completed';
+      session.reportUrl = `/api/report/view/${session.tutorId}/${session.sessionId}`;
+      continue;
+    }
+
+    const files = fs.readdirSync(sessionFolder);
+    if (files.some(f => f.endsWith('.mp4'))) {
+      pendingWithVideo.push(session);
+    }
+  }
+
+  if (pendingWithVideo.length > 0) {
+    console.log(`[STARTUP] Found ${pendingWithVideo.length} pending sessions with videos — auto-queuing for analysis...`);
+    analysisQueue.enqueueMultiple(pendingWithVideo, io);
+    dataStore.saveData(sessionData);
+  }
+}, 3000); // slight delay to let server fully start
+
 // ==========================
 
 // Auto-analyze sessions function - now uses queue manager
@@ -779,6 +962,191 @@ app.post('/api/sessions/analyze/:sessionId', (req, res) => {
     message: 'Re-downloading video and regenerating report...'
   });
 });
+
+// Restart FAILED report (lightweight): deletes old report files and re-queues analysis using existing local video
+app.post('/api/sessions/retry-analysis/:sessionId', (req, res) => {
+  const { sessionId } = req.params;
+  const session = sessionData.find(s => s.sessionId === sessionId);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+
+  const sessionFolder = path.join(__dirname, '..', 'Sessions', session.tutorId);
+  if (!fs.existsSync(sessionFolder)) {
+    return res.status(400).json({ error: 'Session folder not found; use full regenerate (re-download) instead.' });
+  }
+
+  const files = fs.readdirSync(sessionFolder);
+  const hasVideo = files.some(f => f.endsWith('.mp4'));
+  if (!hasVideo) {
+    return res.status(400).json({ error: 'No local video found; use full regenerate (re-download) instead.' });
+  }
+
+  const deleted = deleteExistingReports(sessionFolder, session.tutorId);
+
+  session.analysisStatus = 'queued';
+  session.failureReason = null;
+  session.failureDetails = null;
+  session.failureExitCode = null;
+  session.queuePosition = null;
+  session.progress = 0;
+  session.lastRetryAt = new Date().toISOString();
+  session.manualRetryCount = (session.manualRetryCount || 0) + 1;
+
+  dataStore.saveData(sessionData);
+  io.emit('sessionUpdate', session);
+
+  analysisQueue.enqueue(session, io, { priority: 5 });
+
+  res.json({ success: true, message: `Re-queued analysis (deleted ${deleted} old report file(s))` });
+});
+
+// Retry sweep: re-queue failed analyses in bulk (safe throttling)
+app.post('/api/analysis/retry-failed', (req, res) => {
+  const limit = Number.isFinite(Number(req.body?.limit)) ? Number(req.body.limit) : 50;
+  const minAgeSeconds = Number.isFinite(Number(req.body?.minAgeSeconds)) ? Number(req.body.minAgeSeconds) : 120;
+  const force = Boolean(req.body?.force);
+  const resetRetryCount = req.body?.resetRetryCount === undefined ? force : Boolean(req.body.resetRetryCount);
+  const now = Date.now();
+
+  let enqueued = 0;
+  let skipped = 0;
+  let firstEnqueuedSessionId = null;
+
+  const skippedBy = {
+    backoff: 0,
+    tooSoon: 0,
+    maxRetries: 0,
+    missingFolder: 0,
+    missingVideo: 0,
+    limitReached: 0
+  };
+
+  const failedTotal = sessionData.reduce((acc, s) => {
+    const status = String(s.analysisStatus || 'pending').toLowerCase();
+    return acc + (status === 'failed' ? 1 : 0);
+  }, 0);
+
+  for (const session of sessionData) {
+    const status = String(session.analysisStatus || 'pending').toLowerCase();
+    if (status !== 'failed') continue;
+
+    if (enqueued >= limit) {
+      skipped++;
+      skippedBy.limitReached++;
+      continue;
+    }
+
+    if (!force) {
+      const nextAutoRetryAt = session.nextAutoRetryAt ? Date.parse(session.nextAutoRetryAt) : 0;
+      if (nextAutoRetryAt && now < nextAutoRetryAt) {
+        skipped++;
+        skippedBy.backoff++;
+        continue;
+      }
+
+      const lastRetryAt = session.lastRetryAt ? Date.parse(session.lastRetryAt) : 0;
+      if (lastRetryAt && (now - lastRetryAt) < minAgeSeconds * 1000) {
+        skipped++;
+        skippedBy.tooSoon++;
+        continue;
+      }
+
+      // Respect maxRetries for auto retries; manual retries can still be done per session
+      if ((session.retryCount || 0) >= ANALYSIS_CONFIG.maxRetries) {
+        skipped++;
+        skippedBy.maxRetries++;
+        continue;
+      }
+    } else if (resetRetryCount) {
+      session.retryCount = 0;
+    }
+
+    const sessionFolder = path.join(__dirname, '..', 'Sessions', session.tutorId);
+    if (!fs.existsSync(sessionFolder)) {
+      skipped++;
+      skippedBy.missingFolder++;
+      continue;
+    }
+
+    const files = fs.readdirSync(sessionFolder);
+    if (!files.some(f => f.endsWith('.mp4'))) {
+      skipped++;
+      skippedBy.missingVideo++;
+      continue;
+    }
+
+    deleteExistingReports(sessionFolder, session.tutorId);
+    session.analysisStatus = 'queued';
+    session.failureReason = null;
+    session.failureDetails = null;
+    session.failureExitCode = null;
+    session.queuePosition = null;
+    session.progress = 0;
+    session.lastRetryAt = new Date().toISOString();
+    session.nextAutoRetryAt = null;
+    session.manualRetryCount = (session.manualRetryCount || 0) + 1;
+
+    analysisQueue.enqueue(session, io, { priority: 1 });
+    if (!firstEnqueuedSessionId) firstEnqueuedSessionId = session.sessionId;
+    enqueued++;
+  }
+
+  dataStore.saveData(sessionData);
+  res.json({ success: true, failedTotal, enqueued, skipped, skippedBy, limit, minAgeSeconds, force, resetRetryCount, firstEnqueuedSessionId });
+});
+
+// Optional background routine (pm2-friendly) to auto-retry failed analyses
+// Auto-retry failed analyses after time (enabled by default; disable with AUTO_RETRY_FAILED_ANALYSIS=false)
+const AUTO_RETRY_FAILED = String(process.env.AUTO_RETRY_FAILED_ANALYSIS || '').toLowerCase() !== 'false';
+const AUTO_RETRY_INTERVAL_MINUTES = Math.max(1, parseInt(process.env.AUTO_RETRY_FAILED_ANALYSIS_INTERVAL_MINUTES || '10', 10));
+const AUTO_RETRY_MIN_FAILURE_AGE_SECONDS = Math.max(0, parseInt(process.env.AUTO_RETRY_FAILED_ANALYSIS_MIN_FAILURE_AGE_SECONDS || '300', 10));
+if (AUTO_RETRY_FAILED) {
+  console.log(`[AUTO-RETRY] Enabled: retry failed analyses every ${AUTO_RETRY_INTERVAL_MINUTES} minutes`);
+  setInterval(() => {
+    try {
+      // reuse the same criteria as the bulk endpoint
+      let enqueued = 0;
+      const now = Date.now();
+      for (const session of sessionData) {
+        if (enqueued >= 10) break; // keep it small per tick
+        const status = String(session.analysisStatus || 'pending').toLowerCase();
+        if (status !== 'failed') continue;
+        if ((session.retryCount || 0) >= ANALYSIS_CONFIG.maxRetries) continue;
+        const lastRetryAt = session.lastRetryAt ? Date.parse(session.lastRetryAt) : 0;
+        if (lastRetryAt && (now - lastRetryAt) < (AUTO_RETRY_INTERVAL_MINUTES * 60 * 1000)) continue;
+
+        const nextAutoRetryAt = session.nextAutoRetryAt ? Date.parse(session.nextAutoRetryAt) : 0;
+        if (nextAutoRetryAt && now < nextAutoRetryAt) continue;
+
+        const lastFailureAt = session.lastFailureAt ? Date.parse(session.lastFailureAt) : 0;
+        if (lastFailureAt && (now - lastFailureAt) < (AUTO_RETRY_MIN_FAILURE_AGE_SECONDS * 1000)) continue;
+
+        const sessionFolder = path.join(__dirname, '..', 'Sessions', session.tutorId);
+        if (!fs.existsSync(sessionFolder)) continue;
+        const files = fs.readdirSync(sessionFolder);
+        if (!files.some(f => f.endsWith('.mp4'))) continue;
+
+        deleteExistingReports(sessionFolder, session.tutorId);
+        session.analysisStatus = 'queued';
+        session.failureReason = null;
+        session.failureDetails = null;
+        session.failureExitCode = null;
+        session.queuePosition = null;
+        session.progress = 0;
+        session.lastRetryAt = new Date().toISOString();
+        session.nextAutoRetryAt = null;
+
+        analysisQueue.enqueue(session, io, { priority: 0 });
+        enqueued++;
+      }
+      if (enqueued > 0) {
+        dataStore.saveData(sessionData);
+        console.log(`[AUTO-RETRY] Re-queued ${enqueued} failed analysis session(s)`);
+      }
+    } catch (e) {
+      console.error('[AUTO-RETRY] Error during sweep:', e.message);
+    }
+  }, AUTO_RETRY_INTERVAL_MINUTES * 60 * 1000);
+}
 
 // Update audit data
 app.post('/api/audit/:sessionId', (req, res) => {

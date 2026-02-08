@@ -18,9 +18,10 @@ import pickle
 import io
 from typing import Optional, List
 
-# OAuth Configuration - Set your credentials here or use credentials.json
-CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "YOUR_CLIENT_ID_HERE")
-CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "YOUR_CLIENT_SECRET_HERE")
+# OAuth Configuration
+# Prefer using a local `credentials.json` (not committed) or env vars.
+CLIENT_ID = os.environ.get("DRIVE_OAUTH_CLIENT_ID", "")
+CLIENT_SECRET = os.environ.get("DRIVE_OAUTH_CLIENT_SECRET", "")
 
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 # Use absolute path for token to persist across directories

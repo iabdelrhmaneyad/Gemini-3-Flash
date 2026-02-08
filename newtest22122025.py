@@ -15,7 +15,9 @@ from pathlib import Path
 # ============================================================================
 
 # API Configuration
-API_KEY = "AIzaSyAWg-0-zCBT9Aj6-jIU-W4SWCTQ3D2UKMA" # Replace if needed
+API_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+if not API_KEY:
+    raise RuntimeError("Missing GEMINI_API_KEY (or GOOGLE_API_KEY) environment variable")
 
 # Ultra-Fast Processing Config
 DEFAULT_START_TIME = "00:15:00"

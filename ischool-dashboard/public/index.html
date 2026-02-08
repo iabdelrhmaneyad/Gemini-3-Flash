@@ -171,6 +171,65 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
+
+        /* Sticky header + column filters (Sheets-like) */
+        .table-container {
+            max-height: 70vh;
+            overflow: auto;
+            border-radius: 12px;
+        }
+
+        .sessions-table thead th {
+            position: sticky;
+            z-index: 10;
+        }
+
+        .sessions-table thead tr.header-row th {
+            top: 0;
+        }
+
+        .sessions-table thead tr.filter-row th {
+            top: 52px;
+            padding: 0.5rem;
+            background: linear-gradient(135deg, #111827 0%, #0b1220 100%);
+        }
+
+        .sessions-table thead tr.filter-row th:first-child,
+        .sessions-table thead tr.filter-row th:nth-child(2) {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        }
+
+        .col-filter {
+            width: 100%;
+            padding: 0.4rem 0.5rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.10);
+            color: #fff;
+            font-size: 0.75rem;
+            outline: none;
+        }
+
+        .col-filter::placeholder {
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .col-filter-select {
+            width: 100%;
+            padding: 0.4rem 0.5rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.10);
+            color: #fff;
+            font-size: 0.75rem;
+            outline: none;
+        }
+
+        .row-num {
+            font-variant-numeric: tabular-nums;
+            color: #64748b;
+            font-weight: 700;
+        }
         
         .sessions-table th:first-child {
             border-radius: 8px 0 0 0;
@@ -1904,6 +1963,9 @@
                 <button class="btn btn-secondary" onclick="window.location.href='bi-dashboard.html'">
                     📊 BI Dashboard
                 </button>
+                <button class="btn btn-secondary" id="retryFailedBtn" title="Re-queue analysis for all failed sessions (uses local videos)">
+                    ↻ Retry Failed
+                </button>
                 <button class="btn btn-primary" id="exportBtn">
                     📥 Export Data
                 </button>
@@ -2141,8 +2203,9 @@
             <div class="table-container">
                 <table class="sessions-table">
                     <thead>
-                        <tr>
+                        <tr class="header-row">
                             <th><input type="checkbox" id="selectAll"></th>
+                            <th>#</th>
                             <th>Tutor ID</th>
                             <th>Instructor</th>
                             <th>Session ID</th>
@@ -2155,10 +2218,43 @@
                             <th>Progress</th>
                             <th>Actions</th>
                         </tr>
+                        <tr class="filter-row">
+                            <th></th>
+                            <th></th>
+                            <th><input id="colFilterTutor" class="col-filter" placeholder="Filter…"></th>
+                            <th><input id="colFilterInstructor" class="col-filter" placeholder="Filter…"></th>
+                            <th><input id="colFilterSession" class="col-filter" placeholder="Filter…"></th>
+                            <th><input id="colFilterDate" class="col-filter" placeholder="Filter…"></th>
+                            <th><input id="colFilterSlot" class="col-filter" placeholder="Filter…"></th>
+                            <th><input id="colFilterHumanScore" class="col-filter" placeholder=">=85"></th>
+                            <th><input id="colFilterAiScore" class="col-filter" placeholder=">=85"></th>
+                            <th>
+                                <select id="colFilterStatus" class="col-filter-select">
+                                    <option value="">All</option>
+                                    <option value="pending">pending</option>
+                                    <option value="downloading">downloading</option>
+                                    <option value="analyzing">analyzing</option>
+                                    <option value="completed">completed</option>
+                                    <option value="failed">failed</option>
+                                </select>
+                            </th>
+                            <th>
+                                <select id="colFilterAnalysis" class="col-filter-select">
+                                    <option value="">All</option>
+                                    <option value="pending">pending</option>
+                                    <option value="queued">queued</option>
+                                    <option value="analyzing">analyzing</option>
+                                    <option value="completed">completed</option>
+                                    <option value="failed">failed</option>
+                                </select>
+                            </th>
+                            <th><input id="colFilterProgress" class="col-filter" placeholder=">=50"></th>
+                            <th></th>
+                        </tr>
                     </thead>
                     <tbody id="sessionsTableBody">
                         <tr class="empty-state">
-                            <td colspan="12">
+                            <td colspan="13">
                                 <div class="empty-message">
                                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                         stroke-width="2">

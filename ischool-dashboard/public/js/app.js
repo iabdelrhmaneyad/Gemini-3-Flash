@@ -11,6 +11,7 @@ const progressList = document.getElementById('progressList');
 const sessionsTableBody = document.getElementById('sessionsTableBody');
 const exportBtn = document.getElementById('exportBtn');
 const resetBtn = document.getElementById('resetBtn');
+const retryFailedBtn = document.getElementById('retryFailedBtn');
 const auditModal = document.getElementById('auditModal');
 const closeModal = document.getElementById('closeModal');
 const cancelAudit = document.getElementById('cancelAudit');
@@ -32,6 +33,33 @@ const videoPlayer = document.getElementById('videoPlayer');
 const videoSource = document.getElementById('videoSource');
 const videoTitle = document.getElementById('videoTitle');
 const chartsSection = document.getElementById('chartsSection');
+
+// Column Filters (Sheets-style)
+const colFilterTutor = document.getElementById('colFilterTutor');
+const colFilterInstructor = document.getElementById('colFilterInstructor');
+const colFilterSession = document.getElementById('colFilterSession');
+const colFilterDate = document.getElementById('colFilterDate');
+const colFilterSlot = document.getElementById('colFilterSlot');
+const colFilterHumanScore = document.getElementById('colFilterHumanScore');
+const colFilterAiScore = document.getElementById('colFilterAiScore');
+const colFilterStatus = document.getElementById('colFilterStatus');
+const colFilterAnalysis = document.getElementById('colFilterAnalysis');
+const colFilterProgress = document.getElementById('colFilterProgress');
+
+[
+    colFilterTutor,
+    colFilterInstructor,
+    colFilterSession,
+    colFilterDate,
+    colFilterSlot,
+    colFilterHumanScore,
+    colFilterAiScore,
+    colFilterProgress
+].forEach((el) => {
+    if (el) el.addEventListener('input', applyFilters);
+});
+if (colFilterStatus) colFilterStatus.addEventListener('change', applyFilters);
+if (colFilterAnalysis) colFilterAnalysis.addEventListener('change', applyFilters);
 
 // State
 let currentSessions = [];
@@ -244,6 +272,118 @@ searchInput.addEventListener('input', applyFilters);
 statusFilter.addEventListener('change', applyFilters);
 auditFilter.addEventListener('change', applyFilters);
 
+// ===== Retry All Failed (Top Bar) =====
+if (retryFailedBtn) {
+    retryFailedBtn.addEventListener('click', async () => {
+        const failedCount = currentSessions.filter(s => String(s.analysisStatus || '').toLowerCase() === 'failed').length;
+        if (failedCount === 0) {
+            showNotification('No failed analyses to retry', 'info');
+            return;
+        }
+
+        const proceed = confirm(
+            `Retry failed analyses?\n\n` +
+            `Step 1: Test with 1 session first\n` +
+            `Step 2: If it succeeds → automatically queue the rest\n\n` +
+            `Failed count: ${failedCount}`
+        );
+        if (!proceed) return;
+
+        const force = confirm(
+            `Use FORCE mode?\n\n` +
+            `OK = FORCE (ignores backoff/max-retries; resets retry counter)\n` +
+            `Cancel = safe mode (respects backoff/max-retries)`
+        );
+
+        retryFailedBtn.classList.add('loading');
+        retryFailedBtn.textContent = '⏳ Testing 1…';
+
+        try {
+            // Step 1: Queue only 1 session as a test
+            const testResp = await fetch(`${API_BASE}/api/analysis/retry-failed`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ limit: 1, minAgeSeconds: 0, force, resetRetryCount: force })
+            });
+            const testRes = await testResp.json().catch(() => ({}));
+
+            if (!testResp.ok || !testRes.success || testRes.enqueued === 0) {
+                const parts = ['Test session: nothing enqueued'];
+                if (testRes.skippedBy) {
+                    const details = Object.entries(testRes.skippedBy)
+                        .filter(([, v]) => Number(v) > 0)
+                        .map(([k, v]) => `${k}=${v}`)
+                        .join(' ');
+                    if (details) parts.push(details);
+                }
+                showNotification(parts.join(' • '), 'info');
+                retryFailedBtn.textContent = '↻ Retry Failed';
+                retryFailedBtn.classList.remove('loading');
+                return;
+            }
+
+            const testSessionId = testRes.firstEnqueuedSessionId;
+            showNotification(`Testing 1 session${testSessionId ? ' (' + testSessionId + ')' : ''}… waiting for result`, 'info');
+
+            // Step 2: Wait for that session to finish (completed or failed) via socket
+            const waitForResult = () => new Promise((resolve) => {
+                const timeout = setTimeout(() => {
+                    socket.off('sessionUpdate', handler);
+                    resolve('timeout');
+                }, 20 * 60 * 1000); // 20 min max wait
+
+                const handler = (session) => {
+                    if (testSessionId && session.sessionId !== testSessionId) return;
+                    const st = String(session.analysisStatus || '').toLowerCase();
+                    if (st === 'completed' || st === 'failed') {
+                        clearTimeout(timeout);
+                        socket.off('sessionUpdate', handler);
+                        resolve(st);
+                    }
+                };
+                socket.on('sessionUpdate', handler);
+            });
+
+            const result = await waitForResult();
+
+            if (result === 'completed') {
+                showNotification('✅ Test session succeeded! Queuing the rest…', 'success');
+                retryFailedBtn.textContent = '⏳ Queuing rest…';
+
+                // Step 3: Queue remaining failed sessions
+                const bulkResp = await fetch(`${API_BASE}/api/analysis/retry-failed`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ limit: 200, minAgeSeconds: 0, force, resetRetryCount: force })
+                });
+                const bulkRes = await bulkResp.json().catch(() => ({}));
+
+                const parts = [`✅ Test passed → Queued ${bulkRes.enqueued || 0} more`];
+                if (bulkRes.skipped) parts.push(`Skipped: ${bulkRes.skipped}`);
+                if (bulkRes.skippedBy) {
+                    const details = Object.entries(bulkRes.skippedBy)
+                        .filter(([, v]) => Number(v) > 0)
+                        .map(([k, v]) => `${k}=${v}`)
+                        .join(' ');
+                    if (details) parts.push(details);
+                }
+                showNotification(parts.join(' • '), 'success');
+
+            } else if (result === 'failed') {
+                showNotification('❌ Test session failed (API may still be down). Not queuing the rest.', 'error');
+            } else {
+                showNotification('⏱ Test session timed out. Not queuing the rest.', 'error');
+            }
+
+        } catch (e) {
+            showNotification('Bulk retry error: ' + e.message, 'error');
+        } finally {
+            retryFailedBtn.textContent = '↻ Retry Failed';
+            retryFailedBtn.classList.remove('loading');
+        }
+    });
+}
+
 const scoreFilter = document.getElementById('scoreFilter');
 if (scoreFilter) scoreFilter.addEventListener('change', applyFilters);
 
@@ -252,6 +392,36 @@ function applyFilters() {
     const statusValue = statusFilter.value;
     const auditValue = auditFilter.value;
     const scoreValue = scoreFilter?.value || 'all';
+
+    const matchText = (value, filter) => {
+        const f = String(filter ?? '').trim().toLowerCase();
+        if (!f) return true;
+        return String(value ?? '').toLowerCase().includes(f);
+    };
+
+    const matchNumeric = (value, filter) => {
+        const f = String(filter ?? '').trim();
+        if (!f) return true;
+
+        const raw = String(value ?? '').toString().replace('%', '').trim();
+        const v = parseFloat(raw);
+        const m = f.match(/^(<=|>=|<|>|=)?\s*([0-9]+(?:\.[0-9]+)?)$/);
+        if (!m) {
+            // fallback: substring match
+            return String(value ?? '').toLowerCase().includes(f.toLowerCase());
+        }
+        const op = m[1] || '=';
+        const n = parseFloat(m[2]);
+        if (Number.isNaN(v) || Number.isNaN(n)) return false;
+        if (op === '>') return v > n;
+        if (op === '>=') return v >= n;
+        if (op === '<') return v < n;
+        if (op === '<=') return v <= n;
+        return v === n;
+    };
+
+    const colStatus = String(colFilterStatus?.value || '').trim();
+    const colAnalysis = String(colFilterAnalysis?.value || '').trim();
 
     filteredSessions = currentSessions.filter(session => {
         // Search filter (now includes instructor)
@@ -284,7 +454,22 @@ function applyFilters() {
             matchesScore = !isNaN(aiScore) && !isNaN(humanScore) && Math.abs(aiScore - humanScore) > 15;
         }
 
-        return matchesSearch && matchesStatus && matchesAudit && matchesScore;
+        // Column filters
+        const colTutorOk = matchText(session.tutorId, colFilterTutor?.value);
+        const colInstructorOk = matchText(session.instructorName || '', colFilterInstructor?.value);
+        const colSessionOk = matchText(session.sessionId, colFilterSession?.value);
+        const colDateOk = matchText(session.sessionData, colFilterDate?.value);
+        const colSlotOk = matchText(session.timeSlot, colFilterSlot?.value);
+        const colHumanOk = matchNumeric(session.humanReport?.score, colFilterHumanScore?.value);
+        const colAiOk = matchNumeric(session.aiScore, colFilterAiScore?.value);
+        const colProgOk = matchNumeric(session.progress, colFilterProgress?.value);
+
+        const colStatusOk = !colStatus || String(session.status || '').toLowerCase() === colStatus;
+        const colAnalysisOk = !colAnalysis || String(session.analysisStatus || 'pending').toLowerCase() === colAnalysis;
+
+        return matchesSearch && matchesStatus && matchesAudit && matchesScore &&
+            colTutorOk && colInstructorOk && colSessionOk && colDateOk && colSlotOk &&
+            colHumanOk && colAiOk && colProgOk && colStatusOk && colAnalysisOk;
     });
 
     renderSessionsTable(filteredSessions);
@@ -422,6 +607,37 @@ async function regenerateAnalysis(sessionId) {
         showNotification('Error: ' + e.message, 'error');
     }
 }
+
+// Restart failed report (light retry: reuse local video, re-run analysis)
+async function restartFailedReport(sessionId) {
+    const session = currentSessions.find(s => s.sessionId === sessionId);
+    if (!session) return;
+
+    const isFailed = String(session.analysisStatus || '').toLowerCase() === 'failed';
+    if (!isFailed) {
+        // For non-failed sessions, keep existing behavior (full regenerate)
+        return regenerateAnalysis(sessionId);
+    }
+
+    if (!confirm('Retry FAILED analysis now?\n\nThis will:\n• Delete only the old report files\n• Re-run the analysis using the existing local video\n\nIf the video is missing, you must use full regeneration (re-download).')) return;
+
+    showNotification('Retrying failed analysis (re-queue)...', 'info');
+
+    try {
+        const response = await fetch(`${API_BASE}/api/sessions/retry-analysis/${sessionId}`, { method: 'POST' });
+        const res = await response.json().catch(() => ({}));
+        if (response.ok && res.success) {
+            showNotification(res.message || 'Retry queued', 'success');
+            applyFilters();
+        } else {
+            showNotification('Retry failed: ' + (res.error || 'Unknown error'), 'error');
+        }
+    } catch (e) {
+        showNotification('Error: ' + e.message, 'error');
+    }
+}
+
+window.restartFailedReport = restartFailedReport;
 
 // Human Report Modal
 function openHumanReportModal(sessionId) {
@@ -1060,7 +1276,7 @@ function renderSessionsTable(sessions) {
         return link.startsWith('http');
     };
 
-    sessionsTableBody.innerHTML = sessions.map(session => {
+    sessionsTableBody.innerHTML = sessions.map((session, idx) => {
         const statusClass = session.status === 'completed' ? 'status-completed' :
             session.status === 'failed' ? 'status-failed' :
                 session.status === 'downloading' ? 'status-downloading' :
@@ -1101,10 +1317,16 @@ function renderSessionsTable(sessions) {
         // Check if human report has any content
         const hasHumanReport = session.humanReport && (session.humanReport.score || session.humanReport.positive || session.humanReport.improvement);
         const hasAIReport = session.analysisStatus === 'completed';
+        const analysisStatus = String(session.analysisStatus || 'pending').toLowerCase();
+        const retryTitle = analysisStatus === 'failed'
+            ? 'Retry failed analysis (reuse local video)'
+            : 'Regenerate AI Analysis (re-download + re-run)';
+        const retryLabel = analysisStatus === 'failed' ? '↻ Retry' : '↻';
 
         return `
             <tr class="${rowClass}">
                 <td><input type="checkbox" class="session-checkbox" data-session-id="${session.sessionId}" ${isChecked} onchange="handleSessionCheckbox('${session.sessionId}', this.checked)"></td>
+                <td class="row-num">${idx + 1}</td>
                 <td>
                     <div class="cell-title">${escapeHtml(session.tutorId)}</div>
                 </td>
@@ -1132,7 +1354,7 @@ function renderSessionsTable(sessions) {
                      </div>
                 </td>
                 <td><span class="status-badge ${statusClass}">${session.status}</span></td>
-                <td>${getAnalysisDisplay(session)}</td>
+                <td title="${escapeHtml(session.failureReason || session.failureDetails || '')}">${getAnalysisDisplay(session)}</td>
                 <td>
                     <div class="progress-cell">
                         <div class="progress-mini"><div class="progress-mini-bar" style="width:${Math.max(0, Math.min(100, progressVal))}%"></div></div>
@@ -1162,8 +1384,8 @@ function renderSessionsTable(sessions) {
                                 ${session.auditApproved ? '✓' : '○'} Audit
                             </button>
                             
-                            <button class="action-btn retry-btn" onclick="regenerateAnalysis('${session.sessionId}')" title="Regenerate AI Analysis">
-                                ↻
+                            <button class="action-btn retry-btn" onclick="restartFailedReport('${session.sessionId}')" title="${retryTitle}">
+                                ${retryLabel}
                             </button>
                             
                             <button class="action-btn drive-btn" onclick="openExternalLink('${(session.driveFolderLink || session.driveLink || '').replace(/'/g, "\\'")}')" ${canDrive ? '' : 'disabled'} title="View in Google Drive">
@@ -1562,84 +1784,6 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
-
-// ===== View/Generate Report =====
-async function viewReport(tutorId, sessionId) {
-    try {
-        showNotification('Loading report...', 'info');
-
-        // Check if report exists
-        const checkResponse = await fetch(`${API_BASE}/api/report/check/${tutorId}/${sessionId}`);
-        const checkData = await checkResponse.json();
-
-        if (checkData.exists) {
-            // Open existing report in modal
-            openReportModal(tutorId, sessionId);
-            showNotification('Report loaded', 'success');
-        } else {
-            // Ask user if they want to generate report
-            const confirmed = confirm(`No report found for ${sessionId}.\n\nWould you like to generate a new report using RAG analysis?\n\nThis may take a few minutes.`);
-
-            if (!confirmed) return;
-
-            showNotification('Generating report... This may take a few minutes', 'info');
-
-            // Generate new report
-            const generateResponse = await fetch(`${API_BASE}/api/report/generate/${tutorId}/${sessionId}`, {
-                method: 'POST'
-            });
-
-            const generateData = await generateResponse.json();
-
-            if (generateData.success) {
-                showNotification('Report generated successfully!', 'success');
-                // Open newly generated report in modal
-                openReportModal(tutorId, sessionId);
-            } else {
-                showNotification(`Error: ${generateData.error}`, 'error');
-            }
-        }
-    } catch (error) {
-        console.error('Report error:', error);
-        showNotification('Error accessing report', 'error');
-    }
-}
-
-window.viewReport = viewReport;
-
-// ===== Report Modal Functions =====
-function openReportModal(tutorId, sessionId) {
-    const reportModal = document.getElementById('reportModal');
-    const reportFrame = document.getElementById('reportFrame');
-    const reportTitle = document.getElementById('reportTitle');
-
-    // Set title
-    reportTitle.textContent = `Quality Report - ${tutorId}`;
-
-    // Load report via backend endpoint that serves the HTML
-    reportFrame.src = `${API_BASE}/api/report/view/${tutorId}/${sessionId}`;
-
-    // Show modal
-    reportModal.classList.add('active');
-}
-
-function closeReportModal() {
-    const reportModal = document.getElementById('reportModal');
-    const reportFrame = document.getElementById('reportFrame');
-
-    reportModal.classList.remove('active');
-    reportFrame.src = ''; // Clear iframe
-}
-
-// Report modal event listeners
-document.getElementById('closeReport').addEventListener('click', closeReportModal);
-document.getElementById('reportModal').addEventListener('click', (e) => {
-    if (e.target.id === 'reportModal') {
-        closeReportModal();
-    }
-});
-
-window.openReportModal = openReportModal;
 
 // ===== Initialize =====
 async function initialize() {

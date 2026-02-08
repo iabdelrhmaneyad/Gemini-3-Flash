@@ -33,7 +33,7 @@ import concurrent.futures
 # CONFIGURATION
 # ============================================================================
 # Prefer env var for safety; fallback keeps existing behavior.
-API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyAWg-0-zCBT9Aj6-jIU-W4SWCTQ3D2UKMA")
+API_KEY = os.environ.get("GEMINI_API_KEY")
 
 BASE_DIR = "/home/ai_quality/Desktop/TestVideo 22122025"
 

@@ -28,11 +28,12 @@ import glob
 import random
 import re
 import concurrent.futures
+import sys
 
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
-API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyAexYhJOKE7YF6LMsjOTpsdSmUnaFzewz4")
+API_KEY = os.environ.get("GEMINI_API_KEY")
 
 BASE_DIR = "/home/ai_quality/Desktop/TestVideo 22122025"
 
@@ -131,6 +132,79 @@ TEMP_FRAMES_DIRNAME = "frames"
 # Initialize the new google.genai client
 client = genai.Client(api_key=API_KEY)
 
+
+def _is_quota_exhausted_error(exc: Exception) -> bool:
+    status = getattr(exc, "status_code", None)
+    if status == 429:
+        return True
+    msg = str(exc)
+    return ("RESOURCE_EXHAUSTED" in msg) or (" 429" in msg) or ("quota" in msg.lower())
+
+
+def _call_genai_with_backoff(fn, *, what: str = "genai", max_attempts: int | None = None):
+    """Call a google.genai SDK function with light backoff; exit 42 on persistent quota exhaustion.
+
+    Exit code 42 is intentional: the Node server detects quota exhaustion and delays retries.
+    """
+    if max_attempts is None:
+        max_attempts = max(1, int(os.environ.get("GEMINI_MAX_ATTEMPTS", "3")))
+
+    base = float(os.environ.get("GEMINI_BACKOFF_BASE_SEC", "5"))
+    cap = float(os.environ.get("GEMINI_BACKOFF_MAX_SEC", "60"))
+    quota_attempts = max(1, int(os.environ.get("GEMINI_429_MAX_ATTEMPTS", "2")))
+
+    quota_seen = 0
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return fn()
+        except Exception as e:
+            if _is_quota_exhausted_error(e):
+                quota_seen += 1
+                if quota_seen >= quota_attempts:
+                    print(f"[QUOTA_EXHAUSTED] {what}: {e}")
+                    sys.exit(42)
+
+            if attempt >= max_attempts:
+                raise
+
+            sleep_s = min(cap, base * (2 ** (attempt - 1)))
+            sleep_s = sleep_s * (0.7 + random.random() * 0.6)  # jitter 0.7x..1.3x
+            print(f"[RETRY] {what} attempt {attempt}/{max_attempts} failed: {e} (sleep {sleep_s:.1f}s)")
+            time.sleep(sleep_s)
+
+
+def delete_uploaded_gemini_files(uploaded_files):
+    """Best-effort cleanup for Gemini Files API to avoid accumulating storage.
+
+    Gemini file uploads persist server-side until deleted; leaving them will eventually
+    hit per-project storage limits.
+    """
+    enabled = str(os.environ.get("GEMINI_DELETE_UPLOADED_FILES", "true")).lower() != "false"
+    if not enabled:
+        return
+
+    if not uploaded_files:
+        return
+
+    deleted = 0
+    for f, original_path in uploaded_files:
+        try:
+            name = getattr(f, "name", None)
+            if not name:
+                continue
+            client.files.delete(name=name)
+            deleted += 1
+        except Exception as e:
+            # Don't fail the whole run due to cleanup
+            try:
+                base = os.path.basename(original_path or "")
+            except Exception:
+                base = ""
+            print(f"[CLEANUP WARNING] Could not delete uploaded file {base}: {e}")
+
+    if deleted:
+        print(f"[CLEANUP] Deleted {deleted} uploaded Gemini file(s)")
+
 def _resolve_ffmpeg_exe():
     """Return path to ffmpeg binary, preferring system ffmpeg then imageio-ffmpeg."""
     exe = shutil.which("ffmpeg")
@@ -154,7 +228,12 @@ def upload_to_gemini(path, mime_type=None, index=None, total=None):
         prefix = "Uploading"
     
     try:
-        file = client.files.upload(file=path, config={"mime_type": mime_type} if mime_type else None)
+        # Small jitter to reduce request bursts under parallel uploads
+        time.sleep(float(os.environ.get("GEMINI_UPLOAD_JITTER_SEC", "0.2")) * random.random())
+        file = _call_genai_with_backoff(
+            lambda: client.files.upload(file=path, config={"mime_type": mime_type} if mime_type else None),
+            what=f"files.upload({os.path.basename(path)})",
+        )
         print(f"{prefix} [OK] {file.uri}")
         return (file, path)  # Return tuple for sorting by original path
     except Exception as e:
@@ -182,8 +261,11 @@ def upload_files_parallel(files_to_upload):
     uploaded_files = []
     total_files = len(files_to_upload)
     print(f"Starting parallel upload for {total_files} files...")
+
+    max_workers = int(os.environ.get("GEMINI_UPLOAD_MAX_WORKERS", "2"))
+    max_workers = max(1, min(8, max_workers))
     
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_file = {
             executor.submit(upload_to_gemini, path, mime_type, index=i+1, total=total_files): (path, mime_type)
             for i, (path, mime_type) in enumerate(files_to_upload)
@@ -202,11 +284,11 @@ def wait_for_files_active(files):
     """Waits for files to be active. Expects (file, path) tuples."""
     print("Waiting for file processing...")
     for f, _ in files:
-        file = client.files.get(name=f.name)
+        file = _call_genai_with_backoff(lambda: client.files.get(name=f.name), what=f"files.get({f.name})")
         while file.state.name == "PROCESSING":
             print(".", end="", flush=True)
             time.sleep(2)
-            file = client.files.get(name=f.name)
+            file = _call_genai_with_backoff(lambda: client.files.get(name=f.name), what=f"files.get({f.name})")
         if file.state.name != "ACTIVE":
             raise Exception(f"File {file.name} failed to process")
     print("...all files ready")
@@ -845,6 +927,7 @@ def recalculate_score(json_text):
 
 def perform_rag_analysis(video_path, output_report_path, transcript_path=None):
     frames_dir = None
+    uploaded_files = []
     try:
         # 1. SETUP & EXTRACTION
         if transcript_path is None:
@@ -1154,10 +1237,13 @@ Hard constraints:
         # 4. STEP 1: INITIAL GENERATION
         print("\n--- Step 1: Generating Initial Analysis JSON ---")
         
-        response_1 = client.models.generate_content(
-            model=MODEL_NAME,
-            contents=[combined_prompt] + pdf_files + transcript_files + frame_files + audio_files,
-            config=generation_config
+        response_1 = _call_genai_with_backoff(
+            lambda: client.models.generate_content(
+                model=MODEL_NAME,
+                contents=[combined_prompt] + pdf_files + transcript_files + frame_files + audio_files,
+                config=generation_config,
+            ),
+            what="models.generate_content(step1)",
         )
         initial_json = response_1.text.strip()
         
@@ -1176,10 +1262,17 @@ Hard constraints:
             print(f"[WARNING] Invalid Initial JSON: {initial_validation}")
             print(f"[RETRY] Regenerating Step 1 (retry {retry_count}/{MAX_EMPTY_JSON_RETRIES})...")
             
-            response_1 = client.models.generate_content(
-                model=MODEL_NAME,
-                contents=[combined_prompt + "\n\nCRITICAL: Return a complete, valid JSON object."] + pdf_files + transcript_files + frame_files + audio_files,
-                config=generation_config
+            response_1 = _call_genai_with_backoff(
+                lambda: client.models.generate_content(
+                    model=MODEL_NAME,
+                    contents=[combined_prompt + "\n\nCRITICAL: Return a complete, valid JSON object."]
+                    + pdf_files
+                    + transcript_files
+                    + frame_files
+                    + audio_files,
+                    config=generation_config,
+                ),
+                what="models.generate_content(step1-retry)",
             )
             initial_json = response_1.text.strip()
             if "```json" in initial_json:
@@ -1202,6 +1295,11 @@ Hard constraints:
         with open(step1_report_path, 'w', encoding='utf-8') as f:
             f.write(initial_json)
         print(f"[SUCCESS] Step 1 Analysis Saved (Score: {score_step1}): {step1_report_path}")
+
+        # Delay between steps to avoid hitting API rate limits
+        step_delay = int(os.environ.get("GEMINI_STEP_DELAY_SEC", "30"))
+        print(f"\n--- Waiting {step_delay}s before Step 2 (rate-limit cooldown) ---")
+        time.sleep(step_delay)
 
         # 5. STEP 2: SELF-AUDIT (RESTORED)
         print("\n--- Step 2: Deep Audit & Verification (With Full Context) ---")
@@ -1244,10 +1342,13 @@ You must verify every single claim in the draft against this evidence.
 **REQUIRED OUTPUT:**
 The clean, corrected, and finalized JSON.
 """
-        response_2 = client.models.generate_content(
-            model=MODEL_NAME,
-            contents=[audit_prompt] + pdf_files + transcript_files + frame_files + audio_files,
-            config=generation_config
+        response_2 = _call_genai_with_backoff(
+            lambda: client.models.generate_content(
+                model=MODEL_NAME,
+                contents=[audit_prompt] + pdf_files + transcript_files + frame_files + audio_files,
+                config=generation_config,
+            ),
+            what="models.generate_content(step2)",
         )
         final_json_text = response_2.text.strip()
         
@@ -1384,6 +1485,12 @@ The clean, corrected, and finalized JSON.
         traceback.print_exc()
         import sys
         sys.exit(1)
+    finally:
+        # Always delete uploaded Gemini files to avoid hitting per-project storage limits
+        try:
+            delete_uploaded_gemini_files(uploaded_files)
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

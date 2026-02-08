@@ -3,8 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const { downloadFromDrive } = require('./driveDownloader');
 
-// Maximum concurrent downloads
-const MAX_CONCURRENT = 5;
+// Maximum concurrent downloads (configurable for small hosts)
+const MAX_CONCURRENT = Math.max(1, parseInt(process.env.DOWNLOAD_MAX_CONCURRENT || '3', 10));
 let downloadQueue = [];
 let activeDownloads = 0;
 let runToken = 0;
