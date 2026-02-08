@@ -23,6 +23,45 @@
             border-bottom: 3px solid #f58220;
             padding: 1rem 2rem;
         }
+
+        /* Backend connection status */
+        .conn-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.45rem 0.7rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            color: rgba(255, 255, 255, 0.92);
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            user-select: none;
+        }
+
+        .conn-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: #9ca3af;
+            box-shadow: 0 0 0 3px rgba(156, 163, 175, 0.18);
+        }
+
+        .conn-pill.ok .conn-dot {
+            background: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+        }
+
+        .conn-pill.warn .conn-dot {
+            background: #f59e0b;
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+        }
+
+        .conn-pill.bad .conn-dot {
+            background: #ef4444;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
+        }
         
         .header h1 {
             color: white;
@@ -1960,6 +1999,13 @@
                 </div>
             </div>
             <div class="header-actions">
+                <div class="conn-pill warn" id="connPill" title="Checking backend connection...">
+                    <span class="conn-dot" id="connDot"></span>
+                    <span id="connText">Connecting...</span>
+                </div>
+                <button class="btn btn-secondary" id="backendConfigBtn" title="Change backend URL (used for API + Socket.IO)">
+                    🔌 Backend
+                </button>
                 <button class="btn btn-secondary" onclick="window.location.href='bi-dashboard.html'">
                     📊 BI Dashboard
                 </button>

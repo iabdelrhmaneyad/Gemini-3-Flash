@@ -1,8 +1,15 @@
 // BI Analytics Engine for iSchool Dashboard - UPDATED WITH REAL DATA
 // Handles data aggregation, metrics calculation, and chart generation using real SAPTCF scores
 
-// Use dynamic API base URL for network access
-const BI_REAL_API_BASE = `${window.location.protocol}//${window.location.hostname}:3000`;
+// Use configurable API base URL (works when frontend is hosted separately)
+const BI_REAL_API_BASE = (() => {
+    const key = 'ischoolBackendUrl';
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = params.get('backend') || params.get('api') || params.get('backendUrl');
+    const fromStorage = window.localStorage ? localStorage.getItem(key) : '';
+    const fallback = `${window.location.protocol}//${window.location.hostname}:3000`;
+    return String(fromQuery || fromStorage || fallback).trim().replace(/\/+$/, '');
+})();
 
 // Chart instances
 let performanceDistChart = null;

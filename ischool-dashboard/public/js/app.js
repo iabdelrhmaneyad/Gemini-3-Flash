@@ -1,6 +1,113 @@
-// Connect to Socket.IO server - use dynamic host for network access
-const API_BASE = `${window.location.protocol}//${window.location.hostname}:3000`;
+// ===== Backend URL (configurable) =====
+const BACKEND_URL_STORAGE_KEY = 'ischoolBackendUrl';
+
+function normalizeBaseUrl(url) {
+    if (!url) return '';
+    return String(url).trim().replace(/\/+$/, '');
+}
+
+function getBackendBaseUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = params.get('backend') || params.get('api') || params.get('backendUrl');
+    const fromStorage = window.localStorage ? localStorage.getItem(BACKEND_URL_STORAGE_KEY) : '';
+    const fromMeta = document.querySelector('meta[name="backend-url"]')?.getAttribute('content');
+    const fromGlobal = window.BACKEND_URL || window.__BACKEND_URL__;
+
+    // Default to previous local-dev behavior
+    const fallback = `${window.location.protocol}//${window.location.hostname}:3000`;
+    return normalizeBaseUrl(fromQuery || fromStorage || fromMeta || fromGlobal || fallback);
+}
+
+let API_BASE = getBackendBaseUrl();
 const socket = io(API_BASE);
+
+// ===== Connection Status UI =====
+const connPill = document.getElementById('connPill');
+const connText = document.getElementById('connText');
+const backendConfigBtn = document.getElementById('backendConfigBtn');
+
+let socketConnected = false;
+let apiHealthy = false;
+let lastApiError = '';
+
+function renderConnectionStatus() {
+    if (!connPill || !connText) return;
+
+    connPill.classList.remove('ok', 'warn', 'bad');
+
+    const baseLabel = API_BASE;
+    const tooltipParts = [`Backend: ${baseLabel}`];
+    if (lastApiError) tooltipParts.push(`API error: ${lastApiError}`);
+    connPill.title = tooltipParts.join('\n');
+
+    if (socketConnected && apiHealthy) {
+        connPill.classList.add('ok');
+        connText.textContent = 'Connected';
+        return;
+    }
+
+    if (socketConnected && !apiHealthy) {
+        connPill.classList.add('warn');
+        connText.textContent = 'Socket OK • API?';
+        return;
+    }
+
+    if (!socketConnected && apiHealthy) {
+        connPill.classList.add('warn');
+        connText.textContent = 'API OK • Socket?';
+        return;
+    }
+
+    connPill.classList.add('bad');
+    connText.textContent = 'Disconnected';
+}
+
+async function checkApiHealth() {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    try {
+        // Lightweight endpoint (exists in our dashboard server)
+        const resp = await fetch(`${API_BASE}/api/queue/status`, {
+            method: 'GET',
+            signal: controller.signal,
+            headers: { 'Accept': 'application/json' }
+        });
+        apiHealthy = resp.ok;
+        lastApiError = resp.ok ? '' : `HTTP ${resp.status}`;
+    } catch (e) {
+        apiHealthy = false;
+        lastApiError = e?.name === 'AbortError' ? 'Timeout' : (e?.message || 'Fetch error');
+    } finally {
+        clearTimeout(timeout);
+        renderConnectionStatus();
+    }
+}
+
+function startHealthPolling() {
+    checkApiHealth();
+    setInterval(checkApiHealth, 15000);
+}
+
+if (backendConfigBtn) {
+    backendConfigBtn.addEventListener('click', () => {
+        const current = API_BASE;
+        const value = prompt(
+            'Backend URL for API + Socket.IO\n\nExample:\nhttps://34.123.3.80.sslip.io\n\nLeave empty to reset to default.',
+            current
+        );
+
+        if (value === null) return; // cancelled
+
+        const next = normalizeBaseUrl(value);
+        if (!next) {
+            localStorage.removeItem(BACKEND_URL_STORAGE_KEY);
+        } else {
+            localStorage.setItem(BACKEND_URL_STORAGE_KEY, next);
+        }
+
+        window.location.reload();
+    });
+}
 
 // DOM Elements
 const uploadZone = document.getElementById('uploadZone');
@@ -187,6 +294,16 @@ let queueStatus = {
 };
 
 // ===== Socket.IO Event Handlers =====
+socket.on('connect', () => {
+    socketConnected = true;
+    renderConnectionStatus();
+});
+
+socket.on('disconnect', () => {
+    socketConnected = false;
+    renderConnectionStatus();
+});
+
 socket.on('sessionData', (sessions) => {
     currentSessions = sessions;
     applyFilters();
@@ -215,6 +332,9 @@ socket.on('queueStatus', (status) => {
     queueStatus = status;
     updateQueueStatusDisplay();
 });
+
+// Start connection checks
+startHealthPolling();
 
 function updateQueueStatusDisplay() {
     const processingEl = document.getElementById('queueProcessing');
