@@ -35,6 +35,9 @@ npm-debug.log*
 data/sessions.json
 data/audit-data.json
 
+# Enhanced dashboard generated data
+enhanced-dashboard/data/
+
 # OS
 .DS_Store
 Thumbs.db

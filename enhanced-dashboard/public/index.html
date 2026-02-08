@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iSchool AI Quality Dashboard - Professional Edition</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/professional.css">
+</head>
+
+<body>
+    <!-- Preloader -->
+    <div id="preloader" class="preloader">
+        <div class="loader">
+            <div class="loader-ring"></div>
+            <div class="loader-ring"></div>
+            <div class="loader-ring"></div>
+            <i class="fas fa-graduation-cap loader-icon"></i>
+        </div>
+        <p class="loader-text">Loading Quality Dashboard...</p>
+    </div>
+
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-bg">
+            <div class="shape shape-1"></div>
+            <div class="shape shape-2"></div>
+            <div class="shape shape-3"></div>
+        </div>
+        <div class="login-container">
+            <div class="login-branding">
+                <div class="brand-logo">
+                    <i class="fas fa-graduation-cap"></i>
+                </div>
+                <h1>iSchool Quality</h1>
+                <p class="tagline">AI-Powered Teaching Analytics Platform</p>
+            </div>
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <div class="input-wrapper">
+                        <i class="fas fa-envelope input-icon"></i>
+                        <input type="email" id="loginEmail" required placeholder="Email Address" autocomplete="email">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" id="loginPassword" required placeholder="Password"
+                            autocomplete="current-password">
+                        <button type="button" class="toggle-password" onclick="togglePassword()">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-options">
+                    <label class="checkbox-wrapper">
+                        <input type="checkbox" id="rememberMe">
+                        <span class="checkmark"></span>
+                        Remember me
+                    </label>
+                    <a href="#" class="forgot-link">Forgot password?</a>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block btn-login">
+                    <span>Sign In</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+                <div id="loginError" class="error-message"></div>
+            </form>
+            <div class="login-footer">
+                <div class="demo-accounts">
+                    <p><strong>Quick Access:</strong></p>
+                    <div class="account-chips">
+                        <button type="button" class="chip" onclick="quickLogin('admin@ischool.com', 'admin123')">
+                            <i class="fas fa-user-shield"></i> Admin
+                        </button>
+                        <button type="button" class="chip" onclick="quickLogin('manager@ischool.com', 'manager123')">
+                            <i class="fas fa-user-tie"></i> Manager
+                        </button>
+                        <button type="button" class="chip" onclick="quickLogin('reviewer@ischool.com', 'reviewer123')">
+                            <i class="fas fa-user-check"></i> Reviewer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="mainDashboard" class="dashboard" style="display: none;">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-graduation-cap"></i>
+                    <div class="logo-text">
+                        <span class="logo-title">iSchool</span>
+                        <span class="logo-subtitle">Quality AI</span>
+                    </div>
+                </div>
+                <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <span class="nav-section-title">Main</span>
+                    <a href="#" class="nav-link active" data-page="dashboard">
+                        <i class="fas fa-th-large"></i>
+                        <span>Dashboard</span>
+                        <span class="nav-badge hot">Live</span>
+                    </a>
+                    <a href="#" class="nav-link" data-page="sessions">
+                        <i class="fas fa-video"></i>
+                        <span>Sessions</span>
+                        <span class="nav-badge count" id="sessionCount">0</span>
+                    </a>
+                    <a href="#" class="nav-link" data-page="tutors">
+                        <i class="fas fa-chalkboard-teacher"></i>
+                        <span>Tutors</span>
+                    </a>
+                    <a href="#" class="nav-link" data-page="reviews">
+                        <i class="fas fa-star-half-alt"></i>
+                        <span>Reviews</span>
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <span class="nav-section-title">Analytics</span>
+                    <a href="#" class="nav-link" data-page="ai-comparison">
+                        <i class="fas fa-brain"></i>
+                        <span>AI vs Human</span>
+                    </a>
+                    <a href="#" class="nav-link" data-page="analytics">
+                        <i class="fas fa-chart-pie"></i>
+                        <span>BI Analytics</span>
+                    </a>
+                </div>
+
+                <div class="nav-section admin-section">
+                    <span class="nav-section-title">Administration</span>
+                    <a href="#" class="nav-link admin-only" data-page="admin" style="display: none;">
+                        <i class="fas fa-users-cog"></i>
+                        <span>User Management</span>
+                    </a>
+                    <a href="#" class="nav-link admin-only" data-page="audit" style="display: none;">
+                        <i class="fas fa-history"></i>
+                        <span>Audit Logs</span>
+                    </a>
+                    <a href="#" class="nav-link admin-only" data-page="export" style="display: none;">
+                        <i class="fas fa-cloud-download-alt"></i>
+                        <span>Data Export</span>
+                    </a>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-profile" id="userProfile">
+                    <div class="user-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="user-info">
+                        <span class="user-name" id="userName">Loading...</span>
+                        <span class="user-role" id="userRole">-</span>
+                    </div>
+                    <div class="user-menu-toggle" onclick="toggleUserMenu()">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </div>
+                </div>
+                <div class="user-menu" id="userMenu">
+                    <a href="#" onclick="showSettings()"><i class="fas fa-cog"></i> Settings</a>
+                    <a href="#" onclick="showProfile()"><i class="fas fa-user"></i> Profile</a>
+                    <div class="divider"></div>
+                    <a href="#" id="logoutBtn" class="logout-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Header -->
+            <header class="top-header">
+                <div class="header-left">
+                    <button class="mobile-menu-toggle" onclick="toggleSidebar()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div class="breadcrumb">
+                        <span id="pageTitle">Dashboard</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search..." id="globalSearch">
+                    </div>
+                    <div class="header-actions">
+                        <button class="action-btn" id="refreshBtn" title="Refresh Data">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button class="action-btn notification-btn" onclick="showNotifications()">
+                            <i class="fas fa-bell"></i>
+                            <span class="notification-badge">3</span>
+                        </button>
+                        <div class="theme-toggle" onclick="toggleTheme()">
+                            <i class="fas fa-moon"></i>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Container -->
+            <div class="content-container">
+                <!-- Dashboard Page -->
+                <div id="dashboardPage" class="page active">
+                    <!-- Welcome Banner -->
+                    <div class="welcome-banner">
+                        <div class="welcome-content">
+                            <h2>Welcome back, <span id="welcomeName">User</span>! 👋</h2>
+                            <p>Here's what's happening with your teaching quality today.</p>
+                        </div>
+                        <div class="welcome-illustration">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="stats-row">
+                        <div class="stat-card gradient-blue">
+                            <div class="stat-content">
+                                <div class="stat-icon">
+                                    <i class="fas fa-video"></i>
+                                </div>
+                                <div class="stat-details">
+                                    <span class="stat-value" id="totalSessions">0</span>
+                                    <span class="stat-label">Total Sessions</span>
+                                    <span class="stat-trend positive"><i class="fas fa-arrow-up"></i> 12% this
+                                        week</span>
+                                </div>
+                            </div>
+                            <div class="stat-progress">
+                                <div class="progress-bar" style="width: 75%"></div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card gradient-green">
+                            <div class="stat-content">
+                                <div class="stat-icon">
+                                    <i class="fas fa-check-double"></i>
+                                </div>
+                                <div class="stat-details">
+                                    <span class="stat-value" id="completedSessions">0</span>
+                                    <span class="stat-label">Completed</span>
+                                    <span class="stat-trend positive"><i class="fas fa-arrow-up"></i> 8% increase</span>
+                                </div>
+                            </div>
+                            <div class="stat-progress">
+                                <div class="progress-bar" style="width: 85%"></div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card gradient-orange">
+                            <div class="stat-content">
+                                <div class="stat-icon">
+                                    <i class="fas fa-hourglass-half"></i>
+                                </div>
+                                <div class="stat-details">
+                                    <span class="stat-value" id="pendingSessions">0</span>
+                                    <span class="stat-label">Pending Review</span>
+                                    <span class="stat-trend neutral"><i class="fas fa-minus"></i> Stable</span>
+                                </div>
+                            </div>
+                            <div class="stat-progress">
+                                <div class="progress-bar" style="width: 30%"></div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card gradient-purple">
+                            <div class="stat-content">
+                                <div class="stat-icon">
+                                    <i class="fas fa-trophy"></i>
+                                </div>
+                                <div class="stat-details">
+                                    <span class="stat-value" id="averageScore">0</span>
+                                    <span class="stat-label">Average Score</span>
+                                    <span class="stat-trend positive"><i class="fas fa-arrow-up"></i> Target: 90</span>
+                                </div>
+                            </div>
+                            <div class="stat-progress">
+                                <div class="progress-bar" style="width: 92%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="charts-row">
+                        <div class="chart-card large">
+                            <div class="card-header">
+                                <h3><i class="fas fa-chart-area"></i> Performance Trend</h3>
+                                <div class="card-actions">
+                                    <select class="time-filter" id="trendPeriod">
+                                        <option value="7">Last 7 Days</option>
+                                        <option value="30">Last 30 Days</option>
+                                        <option value="90">Last 90 Days</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="performanceChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-brain"></i> AI vs Human Agreement</h3>
+                            </div>
+                            <div class="card-body agreement-display">
+                                <div class="agreement-circle">
+                                    <svg viewBox="0 0 100 100">
+                                        <circle class="bg" cx="50" cy="50" r="45"></circle>
+                                        <circle class="progress" cx="50" cy="50" r="45" id="agreementCircle"></circle>
+                                    </svg>
+                                    <div class="agreement-value">
+                                        <span id="agreementRate">0</span>%
+                                    </div>
+                                </div>
+                                <div class="agreement-details">
+                                    <div class="detail-item">
+                                        <span class="detail-label">Sessions Compared</span>
+                                        <span class="detail-value" id="sessionsCompared">0</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">Avg Difference</span>
+                                        <span class="detail-value" id="avgDifference">0 pts</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity & Top Performers -->
+                    <div class="info-row">
+                        <div class="info-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-clock"></i> Recent Activity</h3>
+                                <a href="#" class="view-all" onclick="navigateTo('sessions')">View All</a>
+                            </div>
+                            <div class="card-body">
+                                <div id="recentActivity" class="activity-list">
+                                    <!-- Dynamic content -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="info-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-medal"></i> Top Performers</h3>
+                                <a href="#" class="view-all" onclick="navigateTo('tutors')">View All</a>
+                            </div>
+                            <div class="card-body">
+                                <div id="topPerformers" class="performers-list">
+                                    <!-- Dynamic content -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sessions Page -->
+                <div id="sessionsPage" class="page">
+                    <div class="page-header">
+                        <div class="filter-group">
+                            <div class="search-filter">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="searchSessions" placeholder="Search sessions...">
+                            </div>
+                            <select id="filterStatus" class="filter-select">
+                                <option value="">All Status</option>
+                                <option value="pending">Pending</option>
+                                <option value="in_review">In Review</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                            <select id="filterTutor" class="filter-select">
+                                <option value="">All Tutors</option>
+                            </select>
+                            <button class="btn btn-primary" id="applyFilters">
+                                <i class="fas fa-filter"></i> Apply
+                            </button>
+                        </div>
+                        <div class="action-group">
+                            <button class="btn btn-secondary" onclick="exportSessions()">
+                                <i class="fas fa-download"></i> Export
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Queue Status & Upload -->
+                    <div class="sessions-controls">
+                        <div class="queue-status-bar hidden" id="queueStatusBar">
+                            <div class="queue-info">
+                                <span class="queue-badge"><i class="fas fa-layer-group"></i> Queue: <span
+                                        id="queueCount">0</span></span>
+                                <span class="queue-badge processing"><i class="fas fa-cog fa-spin"></i> Processing:
+                                    <span id="processingCount">0</span></span>
+                            </div>
+                            <div class="queue-actions">
+                                <button class="btn-text btn-sm" onclick="refreshQueueStatus()">Refresh</button>
+                            </div>
+                        </div>
+
+                        <div class="upload-zone" id="uploadZone">
+                            <input type="file" id="csvUploadInput" accept=".csv" hidden>
+                            <div class="upload-content">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <p>Drag & Drop CSV or <span>Click to Upload</span></p>
+                                <small>Supports Google Drive links</small>
+                            </div>
+                            <div class="upload-progress hidden" id="uploadProgress">
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar" style="width: 0%"></div>
+                                </div>
+                                <span class="progress-text">Uploading...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-container" id="sessionsTable">
+                        <!-- Dynamic table -->
+                    </div>
+                    <div class="pagination" id="sessionsPagination">
+                        <!-- Pagination controls -->
+                    </div>
+                </div>
+
+                <!-- Tutors Page -->
+                <div id="tutorsPage" class="page">
+                    <div class="page-header">
+                        <div class="filter-group">
+                            <div class="search-filter">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="searchTutors" placeholder="Search tutors...">
+                            </div>
+                        </div>
+                        <div class="view-toggle">
+                            <button class="toggle-btn active" data-view="grid" onclick="setTutorView('grid')">
+                                <i class="fas fa-th-large"></i>
+                            </button>
+                            <button class="toggle-btn" data-view="list" onclick="setTutorView('list')">
+                                <i class="fas fa-list"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="tutorsGrid" class="tutors-container grid-view">
+                        <!-- Dynamic content -->
+                    </div>
+                </div>
+
+                <!-- Reviews Page -->
+                <div id="reviewsPage" class="page">
+                    <div id="reviewersGrid">
+                        <!-- Dynamic content -->
+                    </div>
+                </div>
+
+                <!-- AI Comparison Page -->
+                <div id="aiComparisonPage" class="page">
+                    <div id="comparisonCharts">
+                        <!-- Dynamic content -->
+                    </div>
+                </div>
+
+                <!-- Analytics Page -->
+                <div id="analyticsPage" class="page">
+                    <div id="analyticsContent">
+                        <!-- Dynamic content -->
+                    </div>
+                </div>
+
+                <!-- Admin Panel Page -->
+                <div id="adminPage" class="page">
+                    <div class="admin-tabs">
+                        <button class="tab-btn active" data-tab="users" onclick="showAdminTab('users')">
+                            <i class="fas fa-users"></i> Users
+                        </button>
+                        <button class="tab-btn" data-tab="bulk" onclick="showAdminTab('bulk')">
+                            <i class="fas fa-tasks"></i> Bulk Operations
+                        </button>
+                        <button class="tab-btn" data-tab="system" onclick="showAdminTab('system')">
+                            <i class="fas fa-server"></i> System
+                        </button>
+                    </div>
+
+                    <div id="usersTab" class="tab-content active">
+                        <div class="content-header">
+                            <h3>User Management</h3>
+                            <button class="btn btn-primary" onclick="showAddUserModal()">
+                                <i class="fas fa-plus"></i> Add User
+                            </button>
+                        </div>
+                        <div id="usersGrid" class="users-list">
+                            <!-- Dynamic content -->
+                        </div>
+                    </div>
+
+                    <div id="bulkTab" class="tab-content">
+                        <div class="bulk-operations">
+                            <h3>Bulk Session Assignment</h3>
+                            <div class="bulk-form">
+                                <div class="checkbox-list" id="sessionsList"></div>
+                                <div class="bulk-actions">
+                                    <select id="reviewerSelect" class="filter-select">
+                                        <option value="">Select Reviewer</option>
+                                    </select>
+                                    <button class="btn btn-primary" onclick="bulkAssignSessions()">
+                                        <i class="fas fa-check"></i> Assign Selected
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="systemTab" class="tab-content">
+                        <div class="system-stats">
+                            <div class="stats-row">
+                                <div class="stat-card mini">
+                                    <i class="fas fa-users"></i>
+                                    <div class="stat-details">
+                                        <span class="stat-value" id="systemTotalUsers">0</span>
+                                        <span class="stat-label">Total Users</span>
+                                    </div>
+                                </div>
+                                <div class="stat-card mini">
+                                    <i class="fas fa-video"></i>
+                                    <div class="stat-details">
+                                        <span class="stat-value" id="systemTotalSessions">0</span>
+                                        <span class="stat-label">Total Sessions</span>
+                                    </div>
+                                </div>
+                                <div class="stat-card mini">
+                                    <i class="fas fa-star"></i>
+                                    <div class="stat-details">
+                                        <span class="stat-value" id="systemTotalReviews">0</span>
+                                        <span class="stat-label">Total Reviews</span>
+                                    </div>
+                                </div>
+                                <div class="stat-card mini">
+                                    <i class="fas fa-history"></i>
+                                    <div class="stat-details">
+                                        <span class="stat-value" id="systemTotalAuditLogs">0</span>
+                                        <span class="stat-label">Audit Logs</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="chart-card">
+                                <h4>System Activity (7 Days)</h4>
+                                <canvas id="systemActivityChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Audit Logs Page -->
+                <div id="auditPage" class="page">
+                    <div class="page-header">
+                        <div class="filter-group">
+                            <select id="actionFilter" class="filter-select">
+                                <option value="">All Actions</option>
+                                <option value="CREATE_USER">Create User</option>
+                                <option value="UPDATE_USER">Update User</option>
+                                <option value="DELETE_USER">Delete User</option>
+                                <option value="BULK_ASSIGN">Bulk Assign</option>
+                                <option value="EXPORT_DATA">Export Data</option>
+                            </select>
+                            <input type="date" id="dateFrom" class="date-input">
+                            <input type="date" id="dateTo" class="date-input">
+                            <button class="btn btn-primary" onclick="loadAuditLogs()">
+                                <i class="fas fa-filter"></i> Filter
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>User</th>
+                                    <th>Action</th>
+                                    <th>Resource</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody id="auditLogsTable">
+                                <!-- Dynamic content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Export Page -->
+                <div id="exportPage" class="page">
+                    <div class="export-header">
+                        <h2>Data Export Center</h2>
+                        <p>Export your data in various formats for analysis and reporting.</p>
+                    </div>
+                    <div class="export-grid">
+                        <div class="export-card" onclick="exportData('sessions', 'json')">
+                            <div class="export-icon">
+                                <i class="fas fa-file-code"></i>
+                            </div>
+                            <h4>Sessions (JSON)</h4>
+                            <p>Complete session data with all metadata</p>
+                            <span class="export-badge">Recommended</span>
+                        </div>
+                        <div class="export-card" onclick="exportData('sessions', 'csv')">
+                            <div class="export-icon">
+                                <i class="fas fa-file-csv"></i>
+                            </div>
+                            <h4>Sessions (CSV)</h4>
+                            <p>Spreadsheet-compatible format</p>
+                        </div>
+                        <div class="export-card" onclick="exportData('tutors', 'json')">
+                            <div class="export-icon">
+                                <i class="fas fa-user-graduate"></i>
+                            </div>
+                            <h4>Tutors</h4>
+                            <p>All tutor profiles and metrics</p>
+                        </div>
+                        <div class="export-card" onclick="exportData('reviews', 'json')">
+                            <div class="export-icon">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <h4>Reviews</h4>
+                            <p>AI and human review data</p>
+                        </div>
+                        <div class="export-card" onclick="exportData('audit_logs', 'json')">
+                            <div class="export-icon">
+                                <i class="fas fa-history"></i>
+                            </div>
+                            <h4>Audit Logs</h4>
+                            <p>System activity records</p>
+                        </div>
+                        <div class="export-card" onclick="exportFullReport()">
+                            <div class="export-icon premium">
+                                <i class="fas fa-file-pdf"></i>
+                            </div>
+                            <h4>Full Report</h4>
+                            <p>Comprehensive PDF report</p>
+                            <span class="export-badge premium">Premium</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <!-- User Modal -->
+    <div id="userModal" class="modal">
+        <div class="modal-overlay" onclick="closeModal()"></div>
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add User</h3>
+                <button class="modal-close" onclick="closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="userForm" onsubmit="submitUserForm(event)">
+                <div class="modal-body">
+                    <input type="hidden" id="userId">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="fullName">Full Name</label>
+                            <input type="text" id="fullName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="username">Username</label>
+                            <input type="text" id="username" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" placeholder="Leave blank to keep current">
+                    </div>
+                    <div class="form-group">
+                        <label>Roles</label>
+                        <div class="role-checkboxes">
+                            <label class="checkbox-pill">
+                                <input type="checkbox" name="roles" value="admin">
+                                <span><i class="fas fa-shield-alt"></i> Admin</span>
+                            </label>
+                            <label class="checkbox-pill">
+                                <input type="checkbox" name="roles" value="manager">
+                                <span><i class="fas fa-user-tie"></i> Manager</span>
+                            </label>
+                            <label class="checkbox-pill">
+                                <input type="checkbox" name="roles" value="reviewer">
+                                <span><i class="fas fa-user-check"></i> Reviewer</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save User
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Report Modal -->
+    <div id="reportModal" class="modal">
+        <div class="modal-overlay" onclick="closeReportModal()"></div>
+        <div class="modal-container large">
+            <div class="modal-header">
+                <h3 id="reportModalTitle">Quality Report</h3>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="downloadReport()">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                    <button class="modal-close" onclick="closeReportModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body report-body">
+                <iframe id="reportFrame"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Session Details Modal -->
+    <div id="sessionDetailsModal" class="modal">
+        <div class="modal-overlay" onclick="closeSessionDetailsModal()"></div>
+        <div class="modal-container medium">
+            <div class="modal-header">
+                <h3 id="sessionDetailsTitle">Session Details</h3>
+                <button class="modal-close" onclick="closeSessionDetailsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="sessionDetailsContent">
+                <!-- Dynamic content -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Panel -->
+    <div id="notificationPanel" class="notification-panel">
+        <div class="panel-header">
+            <h4>Notifications</h4>
+            <button class="btn-text" onclick="markAllRead()">Mark all read</button>
+        </div>
+        <div class="notification-list" id="notificationList">
+            <div class="notification-item unread">
+                <div class="notification-icon info"><i class="fas fa-info-circle"></i></div>
+                <div class="notification-content">
+                    <p>New session ready for review</p>
+                    <span class="notification-time">2 minutes ago</span>
+                </div>
+            </div>
+            <div class="notification-item unread">
+                <div class="notification-icon success"><i class="fas fa-check-circle"></i></div>
+                <div class="notification-content">
+                    <p>AI Analysis completed for T-6275</p>
+                    <span class="notification-time">15 minutes ago</span>
+                </div>
+            </div>
+            <div class="notification-item">
+                <div class="notification-icon warning"><i class="fas fa-exclamation-triangle"></i></div>
+                <div class="notification-content">
+                    <p>5 sessions pending human review</p>
+                    <span class="notification-time">1 hour ago</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/professional-app.js"></script>
+</body>
+
+</html>

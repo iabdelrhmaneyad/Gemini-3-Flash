@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iSchool AI Quality Dashboard - Enhanced Edition</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/polish.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-container">
+            <div class="login-header">
+                <i class="fas fa-graduation-cap"></i>
+                <h1>iSchool Quality Dashboard</h1>
+                <p>Enhanced Edition - AI & Human Quality Analytics</p>
+            </div>
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <label><i class="fas fa-envelope"></i> Email</label>
+                    <input type="email" id="loginEmail" required placeholder="Enter your email">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-lock"></i> Password</label>
+                    <input type="password" id="loginPassword" required placeholder="Enter your password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                    <i class="fas fa-sign-in-alt"></i> Sign In
+                </button>
+                <div id="loginError" class="error-message"></div>
+            </form>
+            <div class="login-footer">
+                <p>Demo Credentials:</p>
+                <p><strong>Admin:</strong> admin@ischool.com / admin123</p>
+                <p><strong>Reviewer:</strong> reviewer@ischool.com / reviewer123</p>
+                <p><strong>Manager:</strong> manager@ischool.com / manager123</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="mainDashboard" class="main-dashboard" style="display: none;">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-graduation-cap"></i>
+                <h2>iSchool Quality</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-page="dashboard">
+                    <i class="fas fa-chart-line"></i> Dashboard
+                </a>
+                <a href="#" class="nav-item" data-page="sessions">
+                    <i class="fas fa-video"></i> Sessions
+                </a>
+                <a href="#" class="nav-item" data-page="tutors">
+                    <i class="fas fa-chalkboard-teacher"></i> Tutors
+                </a>
+                <a href="#" class="nav-item" data-page="reviews">
+                    <i class="fas fa-star"></i> Reviews
+                </a>
+                <a href="#" class="nav-item" data-page="ai-comparison">
+                    <i class="fas fa-brain"></i> AI vs Human
+                </a>
+                <a href="#" class="nav-item" data-page="analytics">
+                    <i class="fas fa-chart-bar"></i> Analytics
+                </a>
+                <div class="nav-divider"></div>
+                <a href="#" class="nav-item admin-only" data-page="admin" style="display: none;">
+                    <i class="fas fa-user-shield"></i> Admin Panel
+                </a>
+                <a href="#" class="nav-item admin-only" data-page="audit" style="display: none;">
+                    <i class="fas fa-history"></i> Audit Logs
+                </a>
+                <a href="#" class="nav-item admin-only" data-page="export" style="display: none;">
+                    <i class="fas fa-download"></i> Export Data
+                </a>
+                <div class="nav-divider"></div>
+                <a href="#" class="nav-item" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <p id="userInfo"></p>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <h1 id="pageTitle">Dashboard</h1>
+                <div class="top-bar-actions">
+                    <button class="btn btn-secondary" id="exportCSVBtn" style="display: none;">
+                        <i class="fas fa-file-csv"></i> Export CSV
+                    </button>
+                    <button class="btn btn-secondary" id="refreshBtn">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Content Pages -->
+            <div class="content-wrapper">
+                <!-- Dashboard Page -->
+                <div id="dashboardPage" class="page active">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon blue">
+                                <i class="fas fa-video"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="totalSessions">0</h3>
+                                <p>Total Sessions</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon green">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="completedSessions">0</h3>
+                                <p>Completed</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon orange">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="pendingSessions">0</h3>
+                                <p>Pending Review</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon purple">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="averageScore">0</h3>
+                                <p>Average Score</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-grid">
+                        <div class="chart-card">
+                            <h3>AI vs Human Agreement Rate</h3>
+                            <div class="agreement-rate">
+                                <div class="rate-circle">
+                                    <span id="agreementRate">0%</span>
+                                </div>
+                                <p>Sessions with <15 point difference</p>
+                            </div>
+                        </div>
+                        <div class="chart-card">
+                            <h3>Recent Activity</h3>
+                            <div id="recentActivity"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sessions Page -->
+                <div id="sessionsPage" class="page">
+                    <div class="filter-bar">
+                        <input type="text" id="searchSessions" placeholder="Search sessions...">
+                        <select id="filterStatus">
+                            <option value="">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="in_review">In Review</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                        <select id="filterTutor">
+                            <option value="">All Tutors</option>
+                        </select>
+                        <button class="btn btn-primary" id="applyFilters">
+                            <i class="fas fa-filter"></i> Apply Filters
+                        </button>
+                    </div>
+                    <div id="sessionsTable"></div>
+                </div>
+
+                <!-- Tutors Page -->
+                <div id="tutorsPage" class="page">
+                    <div id="tutorsGrid"></div>
+                </div>
+
+                <!-- Reviews Page -->
+                <div id="reviewsPage" class="page">
+                    <div id="reviewersGrid"></div>
+                </div>
+
+                <!-- AI Comparison Page -->
+                <div id="aiComparisonPage" class="page">
+                    <div id="comparisonCharts"></div>
+                </div>
+
+                <!-- Analytics Page -->
+                <div id="analyticsPage" class="page">
+                    <div id="analyticsContent"></div>
+                </div>
+
+                <!-- Admin Panel Page -->
+                <div id="adminPage" class="page">
+                    <div class="admin-tabs">
+                        <button class="tab-btn active" data-tab="users" onclick="showAdminTab('users')">User Management</button>
+                        <button class="tab-btn" data-tab="bulk" onclick="showAdminTab('bulk')">Bulk Operations</button>
+                        <button class="tab-btn" data-tab="system" onclick="showAdminTab('system')">System Stats</button>
+                    </div>
+                    
+                    <!-- Users Tab -->
+                    <div id="usersTab" class="tab-content">
+                        <div class="flex justify-between align-center mb-3">
+                            <h3>User Management</h3>
+                            <button class="btn-primary" onclick="showAddUserModal()">
+                                <i class="fas fa-plus"></i> Add User
+                            </button>
+                        </div>
+                        <div id="usersGrid" class="users-grid"></div>
+                    </div>
+                    
+                    <!-- Bulk Operations Tab -->
+                    <div id="bulkTab" class="tab-content" style="display: none;">
+                        <h3>Bulk Assign Sessions</h3>
+                        <div class="bulk-section">
+                            <div class="checkbox-list" id="sessionsList"></div>
+                            <div class="mt-3">
+                                <select id="reviewerSelect" class="form-control"></select>
+                                <button class="btn-primary mt-2" onclick="bulkAssignSessions()">
+                                    <i class="fas fa-check"></i> Assign Selected Sessions
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- System Stats Tab -->
+                    <div id="systemTab" class="tab-content" style="display: none;">
+                        <h3>System Statistics</h3>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-value" id="totalUsers">0</div>
+                                <div class="stat-label">Total Users</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="totalSessions">0</div>
+                                <div class="stat-label">Total Sessions</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="totalReviews">0</div>
+                                <div class="stat-label">Total Reviews</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="totalAuditLogs">0</div>
+                                <div class="stat-label">Audit Logs</div>
+                            </div>
+                        </div>
+                        
+                        <div class="card mt-3">
+                            <h4>7-Day Activity</h4>
+                            <div style="height: 300px;">
+                                <canvas id="activityChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="card mt-3">
+                            <h4>User Activity</h4>
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Total Actions</th>
+                                        <th>Last Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="userActivityTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Audit Logs Page -->
+                <div id="auditPage" class="page">
+                    <div class="filter-bar">
+                        <select id="actionFilter">
+                            <option value="">All Actions</option>
+                            <option value="CREATE_USER">Create User</option>
+                            <option value="UPDATE_USER">Update User</option>
+                            <option value="DELETE_USER">Delete User</option>
+                            <option value="VIEW_USERS">View Users</option>
+                            <option value="BULK_ASSIGN">Bulk Assign</option>
+                            <option value="EXPORT_DATA">Export Data</option>
+                        </select>
+                        <input type="date" id="dateFrom" placeholder="From Date">
+                        <input type="date" id="dateTo" placeholder="To Date">
+                        <button class="btn btn-primary" onclick="loadAuditLogs()">
+                            <i class="fas fa-filter"></i> Apply Filters
+                        </button>
+                    </div>
+                    <div class="card mt-3">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>User</th>
+                                    <th>Action</th>
+                                    <th>Resource Type</th>
+                                    <th>Resource ID</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody id="auditLogsTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Export Page -->
+                <div id="exportPage" class="page">
+                    <div class="export-options">
+                        <h3>Export Data</h3>
+                        <div class="export-grid">
+                            <button class="export-card" onclick="exportData('sessions', 'json')">
+                                <i class="fas fa-video"></i>
+                                <h4>Sessions (JSON)</h4>
+                                <p>Export all session data</p>
+                            </button>
+                            <button class="export-card" onclick="exportData('sessions', 'csv')">
+                                <i class="fas fa-file-csv"></i>
+                                <h4>Sessions (CSV)</h4>
+                                <p>Export as spreadsheet</p>
+                            </button>
+                            <button class="export-card" onclick="exportData('tutors', 'json')">
+                                <i class="fas fa-chalkboard-teacher"></i>
+                                <h4>Tutors (JSON)</h4>
+                                <p>Export tutor records</p>
+                            </button>
+                            <button class="export-card" onclick="exportData('tutors', 'csv')">
+                                <i class="fas fa-file-csv"></i>
+                                <h4>Tutors (CSV)</h4>
+                                <p>Export as spreadsheet</p>
+                            </button>
+                            <button class="export-card" onclick="exportData('reviews', 'json')">
+                                <i class="fas fa-star"></i>
+                                <h4>Reviews (JSON)</h4>
+                                <p>Export all reviews</p>
+                            </button>
+                            <button class="export-card" onclick="exportData('audit_logs', 'json')">
+                                <i class="fas fa-history"></i>
+                                <h4>Audit Logs (JSON)</h4>
+                                <p>Export system logs</p>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Modal -->
+    <div id="userModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add User</h3>
+                <span class="close-btn" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="userForm" onsubmit="submitUserForm(event)">
+                <input type="hidden" id="userId">
+                
+                <div class="form-group">
+                    <label for="fullName">Full Name</label>
+                    <input type="text" id="fullName" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" class="form-control" placeholder="Enter password">
+                </div>
+                
+                <div class="form-group">
+                    <label>Roles</label>
+                    <div>
+                        <label><input type="checkbox" name="roles" value="admin"> Admin</label>
+                        <label><input type="checkbox" name="roles" value="manager"> Manager</label>
+                        <label><input type="checkbox" name="roles" value="reviewer"> Reviewer</label>
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn-primary">Save User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Report Modal -->
+    <div id="reportModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 90%; width: 1200px; height: 90vh;">
+            <div class="modal-header">
+                <h3 id="reportModalTitle">Quality Report</h3>
+                <span class="close-btn" onclick="closeReportModal()">&times;</span>
+            </div>
+            <div style="flex: 1; overflow: hidden;">
+                <iframe id="reportFrame" style="width: 100%; height: 100%; border: none;"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Session Details Modal -->
+    <div id="sessionDetailsModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3 id="sessionDetailsTitle">Session Details</h3>
+                <span class="close-btn" onclick="closeSessionDetailsModal()">&times;</span>
+            </div>
+            <div id="sessionDetailsContent" style="padding: 20px;">
+                <!-- Dynamic content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>
