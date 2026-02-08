@@ -14,14 +14,25 @@ const dataStore = require('./controllers/dataStore');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
+
+function envFlagTrue(value) {
+  return ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
+}
+
+// CORS can be handled by Node.js OR by the reverse proxy (Nginx).
+// If Nginx is configured to add CORS headers, set DISABLE_CORS=1 to avoid duplicates.
+const CORS_DISABLED = envFlagTrue(process.env.DISABLE_CORS);
+const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
+
+const io = socketIo(server, CORS_DISABLED ? {} : {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
+    origin: CORS_ORIGIN,
+    methods: ["GET", "POST"],
+    credentials: false
   }
 });
 
-const PORT = 3000;
+const PORT = parseInt(process.env.PORT || '3000', 10);
 
 // Ensure a persistent logs directory exists (useful for pm2 deployments)
 const LOGS_DIR = path.join(__dirname, 'logs');
@@ -68,7 +79,9 @@ function deleteExistingReports(sessionFolder, tutorId) {
 }
 
 // Middleware
-app.use(cors());
+if (!CORS_DISABLED) {
+  app.use(cors({ origin: CORS_ORIGIN, credentials: false }));
+}
 app.use(express.json());
 app.use(express.static('public'));
 // Serve Sessions directory for video streaming
